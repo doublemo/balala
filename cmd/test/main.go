@@ -1,5 +1,12 @@
 package main
 
+import (
+	"flag"
+	"fmt"
+	"log"
+	"os"
+)
+
 var usageStr = `
 Usage: balala [options]
 Server Options:
@@ -10,7 +17,7 @@ Server Options:
     -ms,--https_port <port>          Use port for https monitoring
     -c, --config <file>              Configuration file
     -sl,--signal <signal>[=<pid>]    Send signal to nats-server process (stop, quit, reopen, reload)
-                                     <pid> can be either a PID (e.g. 1) or the path to a PID file (e.g. /var/run/nats-server.pid)
+                                     <pid> can be either a PID (e.g. 1) or the path to a PID file (e.g. /var/run/server.pid)
         --client_advertise <string>  Client URL to advertise to other servers
     -t                               Test configuration and exit
 Logging Options:
@@ -43,6 +50,31 @@ Common Options:
         --help_tls                   TLS help
 `
 
-func main() {
+func usage() {
+	fmt.Printf("%s\n", usageStr)
+	os.Exit(0)
+}
 
+func main() {
+	var (
+		showHelp bool
+	)
+
+	fs := flag.NewFlagSet("test", flag.ExitOnError)
+	fs.Usage = usage
+
+	args := os.Args[1:]
+
+	fs.BoolVar(&showHelp, "h", false, "Show this message.")
+	fs.BoolVar(&showHelp, "help", false, "Show this message.")
+	if err := fs.Parse(args); err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	if showHelp {
+		fmt.Println("fmt.Println(os.Args)")
+	}
+
+	fmt.Println(os.Args)
 }
