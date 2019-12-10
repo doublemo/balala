@@ -80,7 +80,7 @@ func main() {
 		fmt.Println("fmt.Println(os.Args)")
 	}
 
-	s := networks.Socket{}
+	s := networks.NewKCP()
 	s.CallBack(func(conn net.Conn, exit chan struct{}) {
 		defer func() {
 			log.Println("offline:", conn.RemoteAddr())
@@ -109,7 +109,7 @@ func main() {
 		defer func() {
 			log.Println("server closed")
 		}()
-		log.Println(s.Serve(":9091", 1024, 1024))
+		log.Println(s.Serve(networks.NewKCPDefaultConfig()))
 	}()
 
 	select {}

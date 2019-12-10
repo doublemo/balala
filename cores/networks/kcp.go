@@ -8,19 +8,21 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+
+	kcp "github.com/xtaci/kcp-go"
 )
 
-// Socket 服务状态定义
+// KCP 服务状态定义
 const (
 	// SocketStatusStoped socket 服务停止状态
-	SocketStatusStoped int32 = iota
+	KCPStatusStoped int32 = iota
 
 	// SocketStatusRunning socket 服务运行状态
-	SocketStatusRunning
+	KCPStatusRunning
 )
 
-// Socket tcp 网络连接实现
-type Socket struct {
+// KCP go版本的kcp支持
+type KCP struct {
 	// done 服务运行完成信号
 	done chan error
 
@@ -28,7 +30,7 @@ type Socket struct {
 	exit chan struct{}
 
 	// listen 监听
-	listen *net.TCPListener
+	listen *kcp.Listener
 
 	// callback 连接回调
 	callback func(net.Conn, chan struct{})
@@ -36,11 +38,15 @@ type Socket struct {
 	// status 状态
 	status int32
 
+	//config  配置信息信息
+	config *KCPConfig
+
 	wg sync.WaitGroup
 }
 
 // Serve 启动服务
-func (s *Socket) Serve(addr string, readBufferSize, writeBufferSize int) error {
+func (s *KCP) Serve(c *KCPConfig) error {
+	s.config = c
 	s.done = make(chan error)
 	s.exit = make(chan struct{})
 	defer func() {
@@ -52,7 +58,7 @@ func (s *Socket) Serve(addr string, readBufferSize, writeBufferSize int) error {
 	}
 
 	atomic.StoreInt32(&s.status, SocketStatusRunning)
-	go s.serve(addr, readBufferSize, writeBufferSize)
+	go s.serve()
 	err := <-s.done
 	close(s.exit)
 	s.listen.Close()
@@ -63,8 +69,8 @@ func (s *Socket) Serve(addr string, readBufferSize, writeBufferSize int) error {
 	return err
 }
 
-func (s *Socket) serve(addr string, readBufferSize, writeBufferSize int) {
-	if err := s.listenTo(addr); err != nil {
+func (s *KCP) serve() {
+	if err := s.listenTo(); err != nil {
 		s.done <- err
 		return
 	}
@@ -74,7 +80,7 @@ func (s *Socket) serve(addr string, readBufferSize, writeBufferSize int) {
 		return
 	}
 
-	connChan := make(chan *net.TCPConn, 128)
+	connChan := make(chan *kcp.UDPSession, 128)
 	go func() {
 		defer func() {
 			close(connChan)
@@ -93,8 +99,12 @@ func (s *Socket) serve(addr string, readBufferSize, writeBufferSize int) {
 				return
 			}
 
-			conn.SetReadBuffer(readBufferSize)
-			conn.SetWriteBuffer(writeBufferSize)
+			conn.SetStreamMode(true)
+			conn.SetWriteDelay(false)
+			conn.SetNoDelay(s.config.Delay())
+			conn.SetMtu(s.config.MTU)
+			conn.SetWindowSize(s.config.SndWnd, s.config.RcvWnd)
+			conn.SetACKNoDelay(s.config.AckNodelay)
 			go s.client(conn)
 
 		case <-s.exit:
@@ -103,9 +113,9 @@ func (s *Socket) serve(addr string, readBufferSize, writeBufferSize int) {
 	}
 }
 
-func (s *Socket) accept(connChan chan *net.TCPConn) error {
+func (s *KCP) accept(connChan chan *kcp.UDPSession) error {
 	for {
-		conn, err := s.listen.AcceptTCP()
+		conn, err := s.listen.AcceptKCP()
 		if err != nil {
 			return err
 		}
@@ -114,20 +124,33 @@ func (s *Socket) accept(connChan chan *net.TCPConn) error {
 	}
 }
 
-func (s *Socket) listenTo(addr string) (err error) {
-	var resolveAddr *net.TCPAddr
-	{
-		resolveAddr, err = net.ResolveTCPAddr("tcp", addr)
-		if err != nil {
-			return
-		}
+func (s *KCP) listenTo() (err error) {
+	block, err := s.config.BlockCrypt()
+	if err != nil {
+		return err
 	}
 
-	s.listen, err = net.ListenTCP("tcp", resolveAddr)
+	s.listen, err = kcp.ListenWithOptions(s.config.Addr, block, s.config.DataShard, s.config.ParityShard)
+	if err != nil {
+		return
+	}
+
+	if err := s.listen.SetDSCP(s.config.DSCP); err != nil {
+		return err
+	}
+
+	if err := s.listen.SetReadBuffer(s.config.SockBuf); err != nil {
+		return err
+	}
+
+	if err := s.listen.SetWriteBuffer(s.config.SockBuf); err != nil {
+		return err
+	}
+
 	return
 }
 
-func (s *Socket) client(conn net.Conn) {
+func (s *KCP) client(conn net.Conn) {
 	defer func() {
 		conn.Close()
 		s.wg.Done()
@@ -138,17 +161,17 @@ func (s *Socket) client(conn net.Conn) {
 }
 
 // Status 状态
-func (s *Socket) Status() int32 {
+func (s *KCP) Status() int32 {
 	return atomic.LoadInt32(&s.status)
 }
 
 // CallBack 设置回调方法
-func (s *Socket) CallBack(f func(net.Conn, chan struct{})) {
+func (s *KCP) CallBack(f func(net.Conn, chan struct{})) {
 	s.callback = f
 }
 
 // Shutdown 关闭
-func (s *Socket) Shutdown() {
+func (s *KCP) Shutdown() {
 	if atomic.LoadInt32(&s.status) != SocketStatusRunning {
 		return
 	}
@@ -156,7 +179,7 @@ func (s *Socket) Shutdown() {
 	s.done <- nil
 }
 
-// NewSocket 创建tcp socket
-func NewSocket() *Socket {
-	return &Socket{}
+// NewKCP 创建kcp
+func NewKCP() *KCP {
+	return &KCP{}
 }
