@@ -4,7 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
+	"time"
+
+	"github.com/doublemo/balala/cores/networks"
 )
 
 var usageStr = `
@@ -76,5 +80,37 @@ func main() {
 		fmt.Println("fmt.Println(os.Args)")
 	}
 
-	fmt.Println(os.Args)
+	s := networks.Socket{}
+	s.CallBack(func(conn net.Conn, exit chan struct{}) {
+		defer func() {
+			log.Println("offline:", conn.RemoteAddr())
+		}()
+
+		log.Println("from:", conn.RemoteAddr())
+		for {
+			select {
+			case <-exit:
+				return
+			}
+		}
+	})
+
+	go func() {
+		time.Sleep(20 * time.Second)
+		s.Shutdown()
+	}()
+
+	go func() {
+		time.Sleep(20 * time.Second)
+		s.Shutdown()
+	}()
+
+	go func() {
+		defer func() {
+			log.Println("server closed")
+		}()
+		log.Println(s.Serve(":9091", 1024, 1024))
+	}()
+
+	select {}
 }
