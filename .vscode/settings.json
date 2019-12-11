@@ -1,3 +1,16 @@
 {
-    "go.inferGopath": false
+    "go.inferGopath": false,
+    "go.lintTool":"golint",
+    "go.useCodeSnippetsOnFunctionSuggest": true,
+    "go.toolsGopath":"D:/works/bin13",
+    "go.gopath":"C:/Users/randy/go",
+    "go.goroot": "C:/Go",
+    "go.testFlags": ["-v", "-race"],
+    "go.autocompleteUnimportedPackages": true,
+    "go.docsTool": "gogetdoc",
+    "go.gocodePackageLookupMode": "go",
+    "go.gotoSymbol.includeImports": true,
+    "go.useCodeSnippetsOnFunctionSuggestWithoutType": true,
+    "go.formatTool": "goimports",
+    "go.useLanguageServer": false
 }
