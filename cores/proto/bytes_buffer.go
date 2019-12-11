@@ -334,3 +334,14 @@ func (b *BytesBuffer) WriteUint16Bytes(bytes []byte) error {
 	b.WriteUint16(uint16(len(bytes)))
 	return b.WriteBytes(bytes...)
 }
+
+// Reset 重置
+func (b *BytesBuffer) Reset() {
+	b.pos = 0
+	b.data = make([]byte, 0)
+}
+
+// ResetPos 重置pos的位置
+func (b *BytesBuffer) ResetPos() {
+	b.pos = 0
+}
