@@ -345,3 +345,15 @@ func (b *BytesBuffer) Reset() {
 func (b *BytesBuffer) ResetPos() {
 	b.pos = 0
 }
+
+// NewBytesBuffer 创建
+func NewBytesBuffer(data []byte) *BytesBuffer {
+	if data == nil {
+		data = make([]byte, 0)
+	}
+
+	return &BytesBuffer{
+		data: data,
+		pos:  0,
+	}
+}
