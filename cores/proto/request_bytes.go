@@ -51,12 +51,12 @@ func (req *RequestBytes) Marshal() ([]byte, error) {
 	b.WriteUint32(req.SeqID)
 	b.WriteInt8(int8(req.PCount))
 	if req.PCount > 1 {
+		b.WriteInt8(int8(req.P))
 		if req.P <= 1 {
 			b.WriteInt8(req.Ver)
 			b.WriteInt16(int16(req.Cmd))
 			b.WriteInt16(int16(req.SubCmd))
 		}
-		b.WriteInt8(int8(req.P))
 	} else {
 		b.WriteInt8(req.Ver)
 		b.WriteInt16(int16(req.Cmd))
@@ -66,14 +66,19 @@ func (req *RequestBytes) Marshal() ([]byte, error) {
 	if err := b.WriteBytes(req.Content...); err != nil {
 		return nil, err
 	}
-
 	return b.Data(), nil
 }
 
 // IsValid 检查数据是否合法
 func (req *RequestBytes) IsValid() bool {
-	if req.SeqID < 1 || req.Cmd < 1 || req.SubCmd < 1 {
+	if req.SeqID < 1 {
 		return false
+	}
+
+	if req.PCount <= 1 {
+		if req.Cmd < 1 || req.SubCmd < 1 {
+			return false
+		}
 	}
 
 	if len(req.Content) < 1 {
@@ -96,7 +101,37 @@ func (req *RequestBytes) Unmarshal(frame []byte) error {
 		return err
 	}
 
+	if count > 1 {
+		page, err := rd.ReadInt8()
+		if err != nil {
+			return err
+		}
+		req.P = int(page)
+	}
+
+	if req.P <= 1 {
+		v, err := rd.ReadInt8()
+		if err != nil {
+			return err
+		}
+
+		cmd, err := rd.ReadInt16()
+		if err != nil {
+			return err
+		}
+
+		subcmd, err := rd.ReadInt16()
+		if err != nil {
+			return err
+		}
+
+		req.Ver = v
+		req.Cmd = Command(cmd)
+		req.SubCmd = Command(subcmd)
+	}
+
 	req.SeqID = sid
 	req.PCount = int(count)
+	req.Content = rd.Bytes()
 	return nil
 }

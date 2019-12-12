@@ -11,8 +11,8 @@ package proto
 // 当PageCount大于1,说明需要进行分包处理
 // 分包协议中将带page
 // -----------------------------------------------------------------------
-// |  SID   | PageCount |  V   | Command | SubCommand | Page  |  Payload  |
-// | uint32 |   int8    | int8 |  int16  |    int16   | int8  |   bytes   |
+// |  SID   | PageCount | Page |  V   | Command | SubCommand |  Payload  |
+// | uint32 |   int8    | int8 | int8 |  int16  |    int16   |   bytes   |
 // -----------------------------------------------------------------------
 // 分页开始后第一个包头是完整的
 // 分页包

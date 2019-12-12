@@ -1,0 +1,11 @@
+// Copyright (c) 2019 The balala Authors <https://github.com/doublemo/balala>
+// 内部错误信息处理
+syntax = "proto3";
+package proto;
+
+message Bad{
+    int32  Command    = 1; // 命令号
+    int32  SubCommand = 2; // 子命令号
+    int32  Code       = 3; // 错误码
+    string Message    = 4; // 错误信息
+}

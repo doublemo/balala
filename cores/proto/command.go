@@ -5,3 +5,8 @@ package proto
 
 // Command  定义命令类型
 type Command int16
+
+// 内部命令定义
+const (
+	InternalBad Command = 110
+)
