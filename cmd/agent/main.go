@@ -134,5 +134,6 @@ func main() {
 	if err := services.Run(agent.New(opts)); err != nil {
 		panic(err)
 	}
+
 	runtime.Goexit()
 }

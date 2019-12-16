@@ -1,6 +1,7 @@
 // Copyright (c) 2019 The balala Authors <https://github.com/doublemo/balala>
 
 // +build !windows
+// +run !windows
 
 package main
 

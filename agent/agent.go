@@ -3,18 +3,34 @@
 // Package agent 代理服务器
 package agent
 
-import "log"
+import (
+	"log"
+
+	"github.com/doublemo/balala/cores/process"
+)
 
 // Agent 代理服务器
 // 代理服务器支持通过服务接口
 type Agent struct {
+	// exitChan 退出信息
+	exitChan chan struct{}
+
 	// configureOptions 配置文件
 	configureOptions *ConfigureOptions
+
+	// process 服务进程管理
+	process *process.RuntimeContainer
 }
 
 // Start 启动服务
 func (s *Agent) Start() {
+	defer func() {
+		close(s.exitChan)
+	}()
+
 	log.Println("START Agent")
+
+	s.process.Run()
 }
 
 // Readyed 返回服务准备就绪信号
@@ -25,6 +41,7 @@ func (s *Agent) Readyed() bool {
 // Shutdown 关闭服务
 func (s *Agent) Shutdown() {
 	log.Println("Shutdown Agent")
+	s.process.Stop()
 }
 
 // Reload 重新加载服务
@@ -40,7 +57,7 @@ func (s *Agent) OtherCommand(cmd int) {}
 
 // QuitCh 退出信息号
 func (s *Agent) QuitCh() <-chan struct{} {
-	return nil
+	return s.exitChan
 }
 
 // Fatalf Fatal信息处理
@@ -63,5 +80,9 @@ func (s *Agent) Printf(string, ...interface{}) {}
 
 // New 创建网关服务
 func New(opts *ConfigureOptions) *Agent {
-	return &Agent{configureOptions: opts}
+	return &Agent{
+		exitChan:         make(chan struct{}),
+		configureOptions: opts,
+		process:          process.NewRuntimeContainer(),
+	}
 }

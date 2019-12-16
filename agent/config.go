@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/doublemo/balala/cores/alias"
+	"github.com/doublemo/balala/cores/networks"
 )
 
 // HTTPOptions http配置
@@ -36,6 +37,19 @@ type HTTPOptions struct {
 	Cert string `alias:"cert"`
 }
 
+// Clone 克隆HTTPOptions
+func (o *HTTPOptions) Clone() *HTTPOptions {
+	return &HTTPOptions{
+		Addr:           o.Addr,
+		ReadTimeout:    o.ReadTimeout,
+		WriteTimeout:   o.WriteTimeout,
+		MaxHeaderBytes: o.MaxHeaderBytes,
+		SSL:            o.SSL,
+		Key:            o.Key,
+		Cert:           o.Cert,
+	}
+}
+
 // SocketOptions tcp参数
 type SocketOptions struct {
 	// Addr 监听地址
@@ -54,10 +68,28 @@ type SocketOptions struct {
 	WriteDeadline int `alias:"writedeadline"`
 }
 
+// Clone SocketOptions
+func (o *SocketOptions) Clone() *SocketOptions {
+	return &SocketOptions{
+		Addr:            o.Addr,
+		ReadBufferSize:  o.ReadBufferSize,
+		WriteBufferSize: o.WriteBufferSize,
+		ReadDeadline:    o.ReadDeadline,
+		WriteDeadline:   o.WriteDeadline,
+	}
+}
+
 // GRPCOptions GRP参数
 type GRPCOptions struct {
 	// Addr 监听地址
 	Addr string `alias:"addr" default:":9092"`
+}
+
+// Clone GRPCOptions
+func (o *GRPCOptions) Clone() *GRPCOptions {
+	return &GRPCOptions{
+		Addr: o.Addr,
+	}
 }
 
 // WebSocketOptions websocket配置
@@ -79,6 +111,18 @@ type WebSocketOptions struct {
 
 	// WriteDeadline 写入超时
 	WriteDeadline int `alias:"writedeadline"`
+}
+
+// Clone WebSocketOptions
+func (o *WebSocketOptions) Clone() *WebSocketOptions {
+	return &WebSocketOptions{
+		Addr:            o.Addr,
+		ReadBufferSize:  o.ReadBufferSize,
+		WriteBufferSize: o.WriteBufferSize,
+		MaxMessageSize:  o.MaxMessageSize,
+		ReadDeadline:    o.ReadDeadline,
+		WriteDeadline:   o.WriteDeadline,
+	}
 }
 
 // ETCDOptions etcd参数
@@ -111,6 +155,21 @@ type ETCDOptions struct {
 	DialKeepAlive int `alias:"dialkeepalive"`
 }
 
+// Clone ETCDOptions
+func (o *ETCDOptions) Clone() *ETCDOptions {
+	return &ETCDOptions{
+		Address:       o.Address,
+		Frefix:        o.Frefix,
+		CACert:        o.CACert,
+		Cert:          o.Cert,
+		Key:           o.Key,
+		Username:      o.Username,
+		Password:      o.Password,
+		DialTimeout:   o.DialTimeout,
+		DialKeepAlive: o.DialKeepAlive,
+	}
+}
+
 // Options 配置参数
 type Options struct {
 	// 当前服务的唯一标识
@@ -139,7 +198,44 @@ type Options struct {
 	ETCD *ETCDOptions `alias:"etcd"`
 
 	// ServiceSecurityKey JWT 服务之通信认证
-	ServiceSecurityKey []byte `alias:"servicesecuritykey"`
+	ServiceSecurityKey string `alias:"servicesecuritykey"`
+}
+
+// Clone 克隆配置文件防止调用配置文件时造成冲突
+func (o *Options) Clone() *Options {
+	copy := Options{}
+	copy.ID = o.ID
+	copy.Runmode = o.Runmode
+	if o.LocalIP == "" {
+		if m, err := networks.LocalIP(); err == nil {
+			o.LocalIP = m.String()
+		}
+	} else {
+		copy.LocalIP = o.LocalIP
+	}
+
+	if o.HTTP != nil {
+		copy.HTTP = o.HTTP.Clone()
+	}
+
+	if o.Socket != nil {
+		copy.Socket = o.Socket.Clone()
+	}
+
+	if o.GRPC != nil {
+		copy.GRPC = o.GRPC.Clone()
+	}
+
+	if o.WebSocket != nil {
+		copy.WebSocket = o.WebSocket.Clone()
+	}
+
+	if o.ETCD != nil {
+		copy.ETCD = o.ETCD.Clone()
+	}
+
+	copy.ServiceSecurityKey = o.ServiceSecurityKey
+	return &copy
 }
 
 // ConfigureOptions 配置文件服务
@@ -153,7 +249,7 @@ type ConfigureOptions struct {
 
 // Read 加载配置文件
 func (conf *ConfigureOptions) Read() *Options {
-	return (*Options)(atomic.LoadPointer(&conf.opts))
+	return (*Options)(atomic.LoadPointer(&conf.opts)).Clone()
 }
 
 // Load 加载配置文件
