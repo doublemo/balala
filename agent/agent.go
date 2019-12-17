@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/doublemo/balala/agent/session"
 	"github.com/doublemo/balala/cores/process"
 	"github.com/go-kit/kit/log"
 	kitlog "github.com/go-kit/kit/log/level"
@@ -31,6 +32,9 @@ type Agent struct {
 	// etcdV3Client 连接实例,用于服务发现
 	etcdV3Client etcdv3.Client
 
+	// sessionStore session存储
+	sessionStore *session.Store
+
 	// logger
 	logger log.Logger
 }
@@ -50,7 +54,13 @@ func (s *Agent) Start() {
 	// 注意服务注册顺序就是服务的启动顺序
 	// 关闭服务时会反顺关闭
 	// socket
-	s.process.Add(makeSocket(s.configureOptions.Read(), s.logger), true)
+	s.process.Add(makeSocket(s.configureOptions.Read(), s.sessionStore, s.logger), true)
+
+	// http
+	s.process.Add(makeHTTP(s.configureOptions.Read(), s.sessionStore, s.logger), true)
+
+	// websocket
+	s.process.Add(makeWebsocket(s.configureOptions.Read(), s.sessionStore, s.logger), true)
 
 	// 创建服务
 	s.process.Add(makeServices(s), true)
@@ -132,6 +142,7 @@ func New(opts *ConfigureOptions) *Agent {
 		readyedChan:      make(chan struct{}),
 		configureOptions: opts,
 		process:          process.NewRuntimeContainer(),
+		sessionStore:     session.NewStore(logger),
 		logger:           logger,
 	}
 }

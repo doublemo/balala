@@ -97,6 +97,24 @@ type WebSocketOptions struct {
 	// Addr 监听地址
 	Addr string `alias:"addr" default:":9093"`
 
+	// ReadTimeout http服务读取超时
+	ReadTimeout int `alias:"readtimeout" default:"10"`
+
+	// WriteTimeout http服务写入超时
+	WriteTimeout int `alias:"writetimeout" default:"10"`
+
+	// MaxHeaderBytes  http内容大小限制
+	MaxHeaderBytes int `alias:"maxheaderbytes" default:"1048576"`
+
+	// SSL ssl 支持
+	SSL bool `alias:"ssl" default:"false"`
+
+	// Key 证书key
+	Key string `alias:"key"`
+
+	// SSLCert 证书
+	Cert string `alias:"cert"`
+
 	// ReadBufferSize 读取缓存大小 32767
 	ReadBufferSize int `alias:"readbuffersize" default:"32767"`
 
@@ -117,6 +135,12 @@ type WebSocketOptions struct {
 func (o *WebSocketOptions) Clone() *WebSocketOptions {
 	return &WebSocketOptions{
 		Addr:            o.Addr,
+		ReadTimeout:     o.ReadTimeout,
+		WriteTimeout:    o.WriteTimeout,
+		MaxHeaderBytes:  o.MaxHeaderBytes,
+		SSL:             o.SSL,
+		Key:             o.Key,
+		Cert:            o.Cert,
 		ReadBufferSize:  o.ReadBufferSize,
 		WriteBufferSize: o.WriteBufferSize,
 		MaxMessageSize:  o.MaxMessageSize,

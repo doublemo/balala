@@ -5,6 +5,7 @@ package session
 import (
 	"crypto/rc4"
 	"encoding/binary"
+	"errors"
 	"io"
 	"net"
 	"sync/atomic"
@@ -30,6 +31,9 @@ const (
 	// FlagAuthorized 已授权
 	FlagAuthorized = 0x8
 )
+
+// Callback 回调
+type Callback func(*Client, []byte) ([]byte, error)
 
 // Client 客户
 type Client struct {
@@ -96,6 +100,21 @@ type Client struct {
 	logger log.Logger
 }
 
+// Send 向客户端推送信息
+func (s *Client) Send(frame []byte) error {
+	if frame == nil {
+		return nil
+	}
+	select {
+	case s.sendChan <- frame:
+	default:
+		kitlog.Warn(s.logger).Log("error", "chanfull", "sid", s.Sid)
+		return errors.New("chanfull")
+	}
+
+	return nil
+}
+
 // SetLogger 设置日志处理
 func (s *Client) SetLogger(logger log.Logger) {
 	s.logger = logger
@@ -106,6 +125,31 @@ func (s *Client) GetLogger() log.Logger {
 	return s.logger
 }
 
+// SetEncoder RC4加密
+func (s *Client) SetEncoder(encoder *rc4.Cipher) {
+	s.encoder = encoder
+}
+
+// SetDecoder rc4解密
+func (s *Client) SetDecoder(decoder *rc4.Cipher) {
+	s.decoder = decoder
+}
+
+// GetRecvChan 获取接收通道
+func (s *Client) GetRecvChan() chan []byte {
+	return s.recvChan
+}
+
+// GetRecvExitChan 获取退出通道
+func (s *Client) GetRecvExitChan() <-chan struct{} {
+	return s.recvExitChan
+}
+
+// GetSendExitChan 信息推送退出通道
+func (s *Client) GetSendExitChan() <-chan struct{} {
+	return s.sendExitChan
+}
+
 // Flag 客户端状态
 func (s *Client) Flag(args ...int32) int32 {
 	if len(args) > 0 {
@@ -114,6 +158,16 @@ func (s *Client) Flag(args ...int32) int32 {
 	}
 
 	return atomic.LoadInt32(&s.flag)
+}
+
+// Call 加密
+func (s *Client) Call(frame []byte, route Callback) ([]byte, error) {
+	// 实现数据解密
+	if s.Flag()&FlagEncrypt != 0 {
+		s.decoder.XORKeyStream(frame, frame)
+	}
+
+	return route(s, frame)
 }
 
 // Kicked 踢掉客户端
@@ -151,7 +205,6 @@ func (s *Client) recvFromSocket(readDeadline time.Duration) {
 		logger = s.logger
 	}
 
-	s.remoteAddr = s.SocketConn.RemoteAddr().String()
 	header := make([]byte, 2)
 	for {
 		// 写入超时与读取超时
@@ -190,7 +243,6 @@ func (s *Client) recvFromWebSocket(readDeadline time.Duration, maxMessageSize in
 		logger = s.logger
 	}
 
-	s.remoteAddr = s.WebsocketConn.RemoteAddr().String()
 	for {
 		// 写入超时与读取超时
 		s.WebsocketConn.SetReadLimit(maxMessageSize)
@@ -224,4 +276,121 @@ func (s *Client) recvFromWebSocket(readDeadline time.Duration, maxMessageSize in
 			return
 		}
 	}
+}
+
+func (s *Client) send(writeDeadline time.Duration, readyed chan bool) {
+	var logger log.Logger
+	{
+		logger = s.logger
+	}
+
+	ticker := time.NewTicker(time.Second * 1)
+	defer func() {
+		ticker.Stop()
+		close(s.sendExitChan)
+	}()
+
+	readyed <- true
+	for {
+		select {
+		case frame, ok := <-s.sendChan:
+			if !ok {
+				return
+			}
+
+			flag := s.Flag()
+			if flag&FlagEncrypt != 0 {
+				s.encoder.XORKeyStream(frame, frame)
+			} else if flag&FlagKeyexcg != 0 {
+				flag &^= FlagKeyexcg
+				flag |= FlagEncrypt
+				s.Flag(flag)
+			}
+
+			if err := s.write(frame, writeDeadline); err != nil {
+				kitlog.Error(logger).Log("error", err)
+				return
+			}
+
+		case <-ticker.C:
+			// websocket ping
+			if s.Proto != proto.Websocket {
+				continue
+			}
+
+			s.WebsocketConn.SetWriteDeadline(time.Now().Add(writeDeadline))
+			if err := s.WebsocketConn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
+
+		case <-s.exitChan:
+			return
+
+		case <-s.recvExitChan:
+			return
+		}
+
+		if s.Flag()&FlagKickedOut != 0 {
+			return
+		}
+	}
+}
+
+func (s *Client) write(frame []byte, writeDeadline time.Duration) (err error) {
+	switch s.Proto {
+	case proto.Socket:
+
+		if writeDeadline.Nanoseconds() > 0 {
+			s.SocketConn.SetWriteDeadline(time.Now().Add(writeDeadline))
+		}
+
+		err = s.writeToSocket(frame)
+		if err != nil {
+			return
+		}
+
+	case proto.Websocket:
+
+		if writeDeadline.Nanoseconds() > 0 {
+			s.WebsocketConn.SetWriteDeadline(time.Now().Add(writeDeadline))
+		}
+
+		err = s.writeToWebSocket(frame)
+		if err != nil {
+			return
+		}
+
+	case proto.None:
+	}
+
+	return
+}
+
+func (s *Client) writeToSocket(frame []byte) error {
+	size := len(frame)
+	binary.BigEndian.PutUint16(s.cacheBytes, uint16(size))
+	copy(s.cacheBytes[2:], frame)
+	_, err := s.SocketConn.Write(s.cacheBytes[:size+2])
+	return err
+}
+
+func (s *Client) writeToWebSocket(frame []byte) (err error) {
+	size := len(frame)
+	binary.BigEndian.PutUint16(s.cacheBytes, uint16(size))
+	copy(s.cacheBytes[2:], frame)
+
+	var w io.WriteCloser
+	{
+		w, err = s.WebsocketConn.NextWriter(websocket.BinaryMessage)
+		if err != nil {
+			return
+		}
+	}
+
+	w.Write(s.cacheBytes[:size+2])
+	if err = w.Close(); err != nil {
+		return
+	}
+
+	return err
 }
