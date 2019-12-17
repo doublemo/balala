@@ -12,7 +12,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"runtime"
 
@@ -127,9 +126,6 @@ func main() {
 	if err := opts.Load(); err != nil {
 		panic(err)
 	}
-
-	o := opts.Read()
-	log.Println(o, o.HTTP)
 
 	if err := services.Run(agent.New(opts)); err != nil {
 		panic(err)

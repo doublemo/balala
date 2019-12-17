@@ -149,10 +149,10 @@ type ETCDOptions struct {
 	Password string `alias:"password"`
 
 	// DialTimeout if DialTimeout is 0, it defaults to 3s
-	DialTimeout int `alias:"dialtimeout"`
+	DialTimeout int `alias:"dialtimeout" default:"3"`
 
 	// DialKeepAlive If DialKeepAlive is 0, it defaults to 3s
-	DialKeepAlive int `alias:"dialkeepalive"`
+	DialKeepAlive int `alias:"dialkeepalive" default:"3"`
 }
 
 // Clone ETCDOptions

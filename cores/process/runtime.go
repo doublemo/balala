@@ -44,9 +44,18 @@ type RuntimeContainer struct {
 }
 
 // Add 增加协程服务到盒子
-func (rc *RuntimeContainer) Add(actor *RuntimeActor) int32 {
+func (rc *RuntimeContainer) Add(actor *RuntimeActor, status bool) int32 {
+	if actor == nil {
+		return 0
+	}
+
 	actor.id = atomic.AddInt32(&rc.counter, 1)
-	actor.stoped = 1
+	if status {
+		actor.stoped = 1
+	} else {
+		actor.stoped = 0
+	}
+
 	rc.actors.Store(actor.id, actor)
 	return actor.id
 }
