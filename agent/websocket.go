@@ -3,18 +3,26 @@
 package agent
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"time"
 
 	"github.com/doublemo/balala/agent/session"
+	"github.com/doublemo/balala/cores/process"
 	"github.com/gin-gonic/gin"
 	"github.com/go-kit/kit/log"
 	kitlog "github.com/go-kit/kit/log/level"
 	"github.com/gorilla/websocket"
 )
 
-func websocketInit(store *session.Store, r *gin.Engine, websocketOpts *WebSocketOptions, logger log.Logger) {
+func makeWebsocketRuntimeActor(opts *Options, store *session.Store, logger log.Logger) *process.RuntimeActor {
+	websocketOpts := opts.WebSocket
+	if websocketOpts == nil {
+		return nil
+	}
+
+	r := gin.New()
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 
@@ -32,12 +40,42 @@ func websocketInit(store *session.Store, r *gin.Engine, websocketOpts *WebSocket
 	// webscoket
 	r.GET("/websocket", func(ctx *gin.Context) {
 		if !ctx.IsWebsocket() {
-			ctx.AbortWithError(http.StatusNotFound, errors.New("404 Not found."))
+			ctx.AbortWithError(http.StatusNotFound, errors.New("404 Not found"))
 			return
 		}
 
 		webscoketHandler(ctx.Writer, ctx.Request, webSocketUpgrader, store, websocketOpts, logger)
 	})
+
+	// http server
+	s := &http.Server{
+		Addr:           websocketOpts.Addr,
+		Handler:        r,
+		ReadTimeout:    time.Duration(websocketOpts.ReadTimeout) * time.Second,
+		WriteTimeout:   time.Duration(websocketOpts.WriteTimeout) * time.Second,
+		MaxHeaderBytes: websocketOpts.MaxHeaderBytes,
+	}
+
+	return &process.RuntimeActor{
+		Exec: func() error {
+			logger.Log("transport", "websocket", "on", websocketOpts.Addr, "ssl", websocketOpts.SSL)
+			if websocketOpts.SSL {
+				return s.ListenAndServeTLS(websocketOpts.Cert, websocketOpts.Key)
+			}
+
+			return s.ListenAndServe()
+		},
+		Interrupt: func(err error) {
+			if err != nil && err != http.ErrServerClosed {
+				kitlog.Error(logger).Log("transport", "websocket", "error", err)
+			}
+		},
+
+		Close: func() {
+			logger.Log("transport", "websocket", "on", "shutdown")
+			s.Shutdown(context.Background())
+		},
+	}
 }
 
 // webscoketHandler WebSocket 处理
@@ -57,5 +95,5 @@ func webscoketHandler(w http.ResponseWriter, req *http.Request, upgrader websock
 		conn.Close()
 	}()
 
-	socketClient(sess, exit, logger)
+	//socketClient(sess, exit, logger)
 }

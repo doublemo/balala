@@ -4,11 +4,17 @@
 package agent
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/doublemo/balala/agent/service"
 	"github.com/doublemo/balala/agent/session"
 	"github.com/doublemo/balala/cores/process"
+	"github.com/doublemo/balala/cores/utils"
+	"github.com/gin-gonic/gin"
 	"github.com/go-kit/kit/log"
 	kitlog "github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/sd/etcdv3"
@@ -35,6 +41,9 @@ type Agent struct {
 	// sessionStore session存储
 	sessionStore *session.Store
 
+	// servicesCaches 集群服务信息缓存
+	servicesCaches map[int32]string
+
 	// logger
 	logger log.Logger
 }
@@ -43,27 +52,40 @@ type Agent struct {
 func (s *Agent) Start() {
 	defer func() {
 		close(s.exitChan)
-		kitlog.Debug(s.logger).Log("Agent", "started")
 	}()
 
-	kitlog.Debug(s.logger).Log("Agent", "start")
+	// 读取一个配置文件副本
+	opts := s.configureOptions.Read()
+
+	// gin web framework
+	gin.SetMode(gin.ReleaseMode)
+	if opts.Runmode == "dev" {
+		gin.SetMode(gin.DebugMode)
+	}
+
+	// Disable Console Color
+	gin.DisableConsoleColor()
+
 	// init etcd
-	makeEtcdv3Client(s)
+	utils.Assert(s.makeEtcdv3Client())
 
 	// 开始注册服务
 	// 注意服务注册顺序就是服务的启动顺序
 	// 关闭服务时会反顺关闭
+	// internal grpc
+	s.process.Add(s.mustRuntimeActor(makeGRPCRuntimeActor(s.configureOptions.Read(), s.sessionStore, s.logger)), true)
+
 	// socket
-	s.process.Add(makeSocket(s.configureOptions.Read(), s.sessionStore, s.logger), true)
+	s.process.Add(makeSocketRuntimeActor(s.configureOptions.Read(), s.sessionStore, s.logger), true)
 
 	// http
-	s.process.Add(makeHTTP(s.configureOptions.Read(), s.sessionStore, s.logger), true)
+	s.process.Add(makeHTTPRuntimeActor(s.configureOptions.Read(), s.sessionStore, s.logger), true)
 
 	// websocket
-	s.process.Add(makeWebsocket(s.configureOptions.Read(), s.sessionStore, s.logger), true)
+	s.process.Add(makeWebsocketRuntimeActor(s.configureOptions.Read(), s.sessionStore, s.logger), true)
 
 	// 创建服务
-	s.process.Add(makeServices(s), true)
+	s.process.Add(s.mustRuntimeActor(s.makeServices()), true)
 	s.process.Run()
 }
 
@@ -82,9 +104,14 @@ func (s *Agent) Shutdown() {
 // Reload 重新加载服务
 func (s *Agent) Reload() {}
 
-// ServiceName 返回服务名称
+// ServiceName 返回唯一服务名称
 func (s *Agent) ServiceName() string {
-	return "agent"
+	return service.Name
+}
+
+// ServiceID 返回服务唯一服务编号
+func (s *Agent) ServiceID() int32 {
+	return service.ID
 }
 
 // OtherCommand 响应其他自定义命令
@@ -123,6 +150,105 @@ func (s *Agent) Tracef(format string, args ...interface{}) {
 // Printf Print信息处理
 func (s *Agent) Printf(format string, args ...interface{}) {
 	kitlog.Info(s.logger).Log("info", fmt.Sprintf(format, args...))
+}
+
+func (s *Agent) makeEtcdv3Client() error {
+	opts := s.configureOptions.Read()
+	if opts.ETCD == nil {
+		return errors.New("ETCD options is nil")
+	}
+
+	etcd := opts.ETCD
+	client, err := etcdv3.NewClient(context.Background(), etcd.Address, etcdv3.ClientOptions{
+		CACert:        etcd.CACert,
+		Cert:          etcd.Cert,
+		Key:           etcd.Key,
+		Username:      etcd.Username,
+		Password:      etcd.Password,
+		DialTimeout:   time.Duration(etcd.DialTimeout) * time.Second,
+		DialKeepAlive: time.Duration(etcd.DialKeepAlive) * time.Second,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	s.etcdV3Client = client
+	return nil
+}
+
+func (s *Agent) makeServices() (*process.RuntimeActor, error) {
+	opts := s.configureOptions.Read()
+	if opts.ETCD == nil {
+		return nil, errors.New("ETCD options is nil")
+	}
+
+	var value service.Value
+	{
+		value.ID = s.ServiceID()
+		value.Name = s.ServiceName()
+		value.LocalID = opts.LocalIP
+		value.MachineID = opts.ID
+		value.Frefix = opts.ETCD.Frefix
+	}
+
+	if opts.GRPC != nil {
+		value.GRPCAddr = opts.GRPC.Addr
+	}
+
+	if opts.HTTP != nil {
+		value.HTTPAddr = opts.HTTP.Addr
+	}
+
+	if opts.Socket != nil {
+		value.SocketAddr = opts.Socket.Addr
+	}
+
+	if opts.WebSocket != nil {
+		value.WebsocketAddr = opts.WebSocket.Addr
+	}
+
+	registrar := etcdv3.NewRegistrar(s.etcdV3Client, etcdv3.Service{
+		Key:   value.Key(),
+		Value: value.String(),
+	}, s.logger)
+	serviceChan := make(chan struct{})
+	return &process.RuntimeActor{
+		Exec: func() error {
+			registrar.Register()
+			close(s.readyedChan)
+			ch := make(chan struct{})
+			go s.etcdV3Client.WatchPrefix(opts.ETCD.Frefix, ch)
+			for {
+				select {
+				case <-ch:
+					instances, err := s.etcdV3Client.GetEntries(opts.ETCD.Frefix)
+					fmt.Println("----------ss---", instances, err)
+				case <-s.exitChan:
+					return nil
+
+				case <-serviceChan:
+					return nil
+				}
+			}
+		},
+		Interrupt: func(err error) {},
+
+		Close: func() {
+			kitlog.Debug(s.logger).Log("Deregister", "Deregister")
+			registrar.Deregister()
+			close(serviceChan)
+		},
+	}, nil
+}
+
+func (s *Agent) mustRuntimeActor(actor *process.RuntimeActor, err error) *process.RuntimeActor {
+	if err != nil {
+		kitlog.Error(s.logger).Log("error", err)
+		panic(err)
+	}
+
+	return actor
 }
 
 // New 创建网关服务
