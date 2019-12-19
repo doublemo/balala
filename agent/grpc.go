@@ -17,13 +17,13 @@ import (
 	"github.com/doublemo/balala/cores/process"
 	"github.com/doublemo/balala/cores/proto/pb"
 	"github.com/doublemo/balala/cores/utils"
-	"github.com/go-kit/kit/auth/jwt"
-	stdendpoint "github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
 	kitlog "github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/prometheus"
 	kitgrpc "github.com/go-kit/kit/transport/grpc"
+	stdopentracing "github.com/opentracing/opentracing-go"
+	stdzipkin "github.com/openzipkin/zipkin-go"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -128,16 +128,14 @@ func makeGRPCRuntimeActor(opts *Options, store *session.Store, logger log.Logger
 		}, []string{"method"})
 	}
 
-	var endpointExtends []stdendpoint.Middleware
-	{
-		endpointExtends = make([]stdendpoint.Middleware, 1)
-		endpointExtends[0] = jwt.NewParser(makeKeyFuncByJWT(opts.ServiceSecurityKey), jwtgo.SigningMethodHS256, jwt.StandardClaimsFactory)
-	}
+	tracer := stdopentracing.GlobalTracer() // no-op
+	zipkinTracer, _ := stdzipkin.NewTracer(nil, stdzipkin.WithNoopTracer(true))
+	jwtToken := makeKeyFuncByJWT(opts.ServiceSecurityKey)
 
 	var (
 		s          = newBaseGRPCServer(logger)
-		endpoints  = endpoint.NewSet(s, logger, duration, counter, endpointExtends...)
-		grpcServer = transport.NewGRPCServer(endpoints, logger)
+		endpoints  = endpoint.NewSet(s, logger, duration, counter, tracer, zipkinTracer, jwtToken)
+		grpcServer = transport.NewGRPCServer(endpoints, tracer, zipkinTracer, logger)
 	)
 
 	lis, err := net.Listen("tcp", grpcOpts.Addr)
