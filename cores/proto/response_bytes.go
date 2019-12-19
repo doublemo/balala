@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/doublemo/balala/cores/proto/pb"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -51,7 +52,7 @@ func (resp *ResponseBytes) Body() []byte {
 func (resp *ResponseBytes) Marshal() ([]byte, error) {
 	if resp.IsError() {
 		if resp.SubCmd != InternalBad {
-			bad := &Bad{
+			bad := &pb.Bad{
 				Command:    int32(resp.Cmd),
 				SubCommand: int32(resp.SubCmd),
 				Code:       0,

@@ -1,0 +1,28 @@
+// Copyright (c) 2019 The balala Authors <https://github.com/doublemo/balala>
+// 内部通信协议
+syntax = "proto3";
+package pb;
+
+service Internal {
+    rpc Call (Request) returns (Response) {};
+    rpc Stream(stream Request) returns (stream Response) {}
+}
+
+message Header {
+    string  SID         = 1;
+    uint64  UserID      = 2;
+    int32   V           = 3;
+    int32   From        = 4;
+    string  FromAddress = 5;
+}
+
+message Request{
+    Header Header = 1;
+    int32 Command = 2;
+    bytes Body    = 3;
+}
+
+message Response{
+    int32 Command = 1;
+    bytes Body    = 2;
+}
