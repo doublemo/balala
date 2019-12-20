@@ -5,6 +5,7 @@ package endpoint
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	jwtgo "github.com/dgrijalva/jwt-go"
@@ -36,6 +37,7 @@ type Set struct {
 // Call 内部远程调用
 func (s Set) Call(ctx context.Context, in *pb.Request) (*pb.Response, error) {
 	resp, err := s.CallEndpoint(ctx, in)
+	fmt.Println("000000----", err)
 	if err != nil {
 		return nil, err
 	}
@@ -80,22 +82,22 @@ func NewSet(s service.GRPC, logger log.Logger, duration metrics.Histogram, count
 	{
 		callEndpoint = MakeCallEndpoint(s)
 		callEndpoint = ratelimit.NewErroringLimiter(rate.NewLimiter(rate.Every(time.Second*1/1024), 102400))(callEndpoint)
+		callEndpoint = jwtEndpoint(callEndpoint)
 		callEndpoint = circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{}))(callEndpoint)
 		callEndpoint = opentracing.TraceServer(otTracer, "Call")(callEndpoint)
-		callEndpoint = jwtEndpoint(callEndpoint)
 
 		if zipkinTracer != nil {
 			callEndpoint = zipkin.TraceEndpoint(zipkinTracer, "Call")(callEndpoint)
 		}
-		callEndpoint = LoggingMiddleware(log.With(logger, "method", "Subscribe"))(callEndpoint)
-		callEndpoint = InstrumentingMiddleware(duration.With("method", "Subscribe"))(callEndpoint)
+		callEndpoint = LoggingMiddleware(log.With(logger, "method", "Call"))(callEndpoint)
+		callEndpoint = InstrumentingMiddleware(duration.With("method", "Call"))(callEndpoint)
 
 	}
 
 	var streamEndpoint endpoint.Endpoint
 	{
 		streamEndpoint = MakeStreamEndpoint(s)
-		streamEndpoint = CounterClientMiddleware(counter.With("method", "dial"))(streamEndpoint)
+		streamEndpoint = CounterClientMiddleware(counter.With("method", "Stream"))(streamEndpoint)
 		streamEndpoint = jwtEndpoint(streamEndpoint)
 	}
 

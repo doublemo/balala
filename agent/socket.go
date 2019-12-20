@@ -9,16 +9,18 @@ import (
 	"github.com/doublemo/balala/agent/session"
 	"github.com/doublemo/balala/cores/networks"
 	"github.com/doublemo/balala/cores/process"
+	"github.com/doublemo/balala/cores/services"
 	"github.com/go-kit/kit/log"
 	kitlog "github.com/go-kit/kit/log/level"
 )
 
-func makeSocketRuntimeActor(opts *Options, store *session.Store, logger log.Logger) *process.RuntimeActor {
+func makeSocketRuntimeActor(serviceOpts *services.Options, opts *Options, store *session.Store, logger log.Logger) *process.RuntimeActor {
 	socketOpts := opts.Socket
 	if socketOpts == nil {
 		return nil
 	}
 
+	serviceOpts.Params["socket"] = socketOpts.Addr
 	var socket networks.Socket
 	{
 		socket.CallBack(func(conn net.Conn, exit chan struct{}) {

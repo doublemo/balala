@@ -13,6 +13,7 @@ import (
 	"github.com/doublemo/balala/agent/service"
 	"github.com/doublemo/balala/agent/session"
 	"github.com/doublemo/balala/cores/process"
+	"github.com/doublemo/balala/cores/services"
 	"github.com/doublemo/balala/cores/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/go-kit/kit/log"
@@ -40,6 +41,9 @@ type Agent struct {
 
 	// sessionStore session存储
 	sessionStore *session.Store
+
+	// ServiceOpts 系统服务参数
+	serviceOpts *services.Options
 
 	// servicesCaches 集群服务信息缓存
 	servicesCaches map[int32]string
@@ -73,16 +77,16 @@ func (s *Agent) Start() {
 	// 注意服务注册顺序就是服务的启动顺序
 	// 关闭服务时会反顺关闭
 	// internal grpc
-	s.process.Add(s.mustRuntimeActor(makeGRPCRuntimeActor(s.configureOptions.Read(), s.sessionStore, s.logger)), true)
+	s.process.Add(s.mustRuntimeActor(makeGRPCRuntimeActor(s.serviceOpts, s.configureOptions.Read(), s.sessionStore, s.logger)), true)
 
 	// socket
-	s.process.Add(makeSocketRuntimeActor(s.configureOptions.Read(), s.sessionStore, s.logger), true)
+	s.process.Add(makeSocketRuntimeActor(s.serviceOpts, s.configureOptions.Read(), s.sessionStore, s.logger), true)
 
 	// http
-	s.process.Add(makeHTTPRuntimeActor(s.configureOptions.Read(), s.sessionStore, s.logger), true)
+	s.process.Add(makeHTTPRuntimeActor(s.serviceOpts, s.configureOptions.Read(), s.sessionStore, s.logger), true)
 
 	// websocket
-	s.process.Add(makeWebsocketRuntimeActor(s.configureOptions.Read(), s.sessionStore, s.logger), true)
+	s.process.Add(makeWebsocketRuntimeActor(s.serviceOpts, s.configureOptions.Read(), s.sessionStore, s.logger), true)
 
 	// 创建服务
 	s.process.Add(s.mustRuntimeActor(s.makeServices()), true)
@@ -183,34 +187,9 @@ func (s *Agent) makeServices() (*process.RuntimeActor, error) {
 		return nil, errors.New("ETCD options is nil")
 	}
 
-	var value service.Value
-	{
-		value.ID = s.ServiceID()
-		value.Name = s.ServiceName()
-		value.LocalID = opts.LocalIP
-		value.MachineID = opts.ID
-		value.Frefix = opts.ETCD.Frefix
-	}
-
-	if opts.GRPC != nil {
-		value.GRPCAddr = opts.GRPC.Addr
-	}
-
-	if opts.HTTP != nil {
-		value.HTTPAddr = opts.HTTP.Addr
-	}
-
-	if opts.Socket != nil {
-		value.SocketAddr = opts.Socket.Addr
-	}
-
-	if opts.WebSocket != nil {
-		value.WebsocketAddr = opts.WebSocket.Addr
-	}
-
 	registrar := etcdv3.NewRegistrar(s.etcdV3Client, etcdv3.Service{
-		Key:   value.Key(),
-		Value: value.String(),
+		Key:   services.RegKey(opts.ETCD.Frefix, s.serviceOpts),
+		Value: services.RegValue(s.serviceOpts),
 	}, s.logger)
 	serviceChan := make(chan struct{})
 	return &process.RuntimeActor{
@@ -252,7 +231,7 @@ func (s *Agent) mustRuntimeActor(actor *process.RuntimeActor, err error) *proces
 }
 
 // New 创建网关服务
-func New(opts *ConfigureOptions) *Agent {
+func New(serviceOpts *services.Options, opts *ConfigureOptions) *Agent {
 	logger := log.NewLogfmtLogger(os.Stderr)
 	logger = log.WithPrefix(logger, "o", "[Balala]Agent")
 	if opts.Read().Runmode == "dev" {
@@ -263,6 +242,7 @@ func New(opts *ConfigureOptions) *Agent {
 
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
 	logger = log.With(logger, "caller", log.DefaultCaller)
+
 	return &Agent{
 		exitChan:         make(chan struct{}),
 		readyedChan:      make(chan struct{}),
@@ -270,5 +250,6 @@ func New(opts *ConfigureOptions) *Agent {
 		process:          process.NewRuntimeContainer(),
 		sessionStore:     session.NewStore(logger),
 		logger:           logger,
+		serviceOpts:      serviceOpts,
 	}
 }

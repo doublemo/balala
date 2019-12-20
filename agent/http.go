@@ -9,22 +9,28 @@ import (
 
 	"github.com/doublemo/balala/agent/session"
 	"github.com/doublemo/balala/cores/process"
+	"github.com/doublemo/balala/cores/services"
 	"github.com/gin-gonic/gin"
 	"github.com/go-kit/kit/log"
 	kitlog "github.com/go-kit/kit/log/level"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func makeHTTPRuntimeActor(opts *Options, store *session.Store, logger log.Logger) *process.RuntimeActor {
+func makeHTTPRuntimeActor(serviceOpts *services.Options, opts *Options, store *session.Store, logger log.Logger) *process.RuntimeActor {
 	httpOpts := opts.HTTP
 	if httpOpts == nil {
 		return nil
 	}
 
+	serviceOpts.Params["http"] = httpOpts.Addr
 	r := gin.New()
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 
 	// 定义命令路由
+	if opts.Runmode == "dev" {
+		r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	}
 
 	// 启动http服务
 	s := &http.Server{

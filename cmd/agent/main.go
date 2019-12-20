@@ -127,7 +127,21 @@ func main() {
 		panic(err)
 	}
 
-	if err := services.Run(agent.New(opts)); err != nil {
+	conf := opts.Read()
+
+	// 创建应用服务参数
+	var serviceOpts services.Options
+	{
+		serviceOpts.ID = 1
+		serviceOpts.Name = exe
+		serviceOpts.MachineID = conf.ID
+		serviceOpts.IP = conf.LocalIP
+		serviceOpts.Port = ""
+		serviceOpts.Params = make(map[string]string)
+		serviceOpts.Params["domain"] = conf.Domain
+	}
+
+	if err := services.Run(agent.New(&serviceOpts, opts)); err != nil {
 		panic(err)
 	}
 

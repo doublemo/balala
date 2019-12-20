@@ -16,6 +16,7 @@ import (
 	"github.com/doublemo/balala/agent/transport"
 	"github.com/doublemo/balala/cores/process"
 	"github.com/doublemo/balala/cores/proto/pb"
+	"github.com/doublemo/balala/cores/services"
 	"github.com/doublemo/balala/cores/utils"
 	"github.com/go-kit/kit/log"
 	kitlog "github.com/go-kit/kit/log/level"
@@ -39,7 +40,7 @@ type baseGRPCServer struct {
 func (s *baseGRPCServer) Call(ctx context.Context, in *pb.Request) (*pb.Response, error) {
 	defer utils.RecoverStackPanic(s.logger, in)
 
-	return nil, nil
+	return &pb.Response{Command: 1}, nil
 }
 
 func (s *baseGRPCServer) Stream(_ context.Context, stream pb.Internal_StreamServer) error {
@@ -102,12 +103,18 @@ func newBaseGRPCServer(logger log.Logger) *baseGRPCServer {
 	}
 }
 
-func makeGRPCRuntimeActor(opts *Options, store *session.Store, logger log.Logger) (*process.RuntimeActor, error) {
+func makeGRPCRuntimeActor(serviceOpts *services.Options, opts *Options, store *session.Store, logger log.Logger) (*process.RuntimeActor, error) {
 	grpcOpts := opts.GRPC
 	if grpcOpts == nil {
 		return nil, nil
 	}
 
+	_, port, err := net.SplitHostPort(grpcOpts.Addr)
+	if err != nil {
+		return nil, err
+	}
+
+	serviceOpts.Port = port
 	var duration metrics.Histogram
 	{
 		duration = prometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
@@ -130,11 +137,10 @@ func makeGRPCRuntimeActor(opts *Options, store *session.Store, logger log.Logger
 
 	tracer := stdopentracing.GlobalTracer() // no-op
 	zipkinTracer, _ := stdzipkin.NewTracer(nil, stdzipkin.WithNoopTracer(true))
-	jwtToken := makeKeyFuncByJWT(opts.ServiceSecurityKey)
 
 	var (
 		s          = newBaseGRPCServer(logger)
-		endpoints  = endpoint.NewSet(s, logger, duration, counter, tracer, zipkinTracer, jwtToken)
+		endpoints  = endpoint.NewSet(s, logger, duration, counter, tracer, zipkinTracer, makeKeyFuncByJWT(opts.ServiceSecurityKey))
 		grpcServer = transport.NewGRPCServer(endpoints, tracer, zipkinTracer, logger)
 	)
 
@@ -166,6 +172,6 @@ func makeGRPCRuntimeActor(opts *Options, store *session.Store, logger log.Logger
 // makeKeyFuncByJWT GRPC
 func makeKeyFuncByJWT(key string) func(token *jwtgo.Token) (interface{}, error) {
 	return func(token *jwtgo.Token) (interface{}, error) {
-		return key, nil
+		return []byte(key), nil
 	}
 }

@@ -205,6 +205,9 @@ type Options struct {
 	// LocalIP 当前服务器IP地址
 	LocalIP string `alias:"localip"`
 
+	// Domain string 提供服务的域名
+	Domain string `alias:"domain"`
+
 	// HTTP http(s) 监听端口
 	// 利用http实现信息GET/POST, webscoket 也会这个端口甚而上实现
 	HTTP *HTTPOptions `alias:"http"`
@@ -232,10 +235,16 @@ func (o *Options) Clone() *Options {
 	copy.Runmode = o.Runmode
 	if o.LocalIP == "" {
 		if m, err := networks.LocalIP(); err == nil {
-			o.LocalIP = m.String()
+			copy.LocalIP = m.String()
 		}
 	} else {
 		copy.LocalIP = o.LocalIP
+	}
+
+	if o.Domain == "" {
+		copy.Domain = copy.LocalIP
+	} else {
+		copy.Domain = o.Domain
 	}
 
 	if o.HTTP != nil {

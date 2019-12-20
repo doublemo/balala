@@ -8,9 +8,11 @@ import (
 	"io"
 	"time"
 
+	jwtgo "github.com/dgrijalva/jwt-go"
 	agentendpoint "github.com/doublemo/balala/agent/endpoint"
 	"github.com/doublemo/balala/agent/service"
 	"github.com/doublemo/balala/cores/proto/pb"
+	"github.com/doublemo/balala/cores/services"
 	"github.com/go-kit/kit/auth/jwt"
 	"github.com/go-kit/kit/circuitbreaker"
 	"github.com/go-kit/kit/endpoint"
@@ -73,21 +75,22 @@ func NewGRPCServer(endpoints agentendpoint.Set, otTracer stdopentracing.Tracer, 
 			endpoints.CallEndpoint,
 			decodeGRPCRequest,
 			encodeGRPCResponse,
-			append(options, grpctransport.ServerBefore(opentracing.GRPCToContext(otTracer, "Call", logger), jwt.GRPCToContext()))...,
+			append(options, grpctransport.ServerBefore(jwt.GRPCToContext(), opentracing.GRPCToContext(otTracer, "Call", logger)))...,
 		),
 
 		stream: grpctransport.NewServer(
 			endpoints.StreamEndpoint,
 			decodeGRPCRequest,
 			encodeGRPCResponse,
-			append(options, grpctransport.ServerBefore(opentracing.GRPCToContext(otTracer, "Call", logger), jwt.GRPCToContext()))...,
+			append(options, grpctransport.ServerBefore(jwt.GRPCToContext(), opentracing.GRPCToContext(otTracer, "Call", logger)))...,
 		),
 	}
 }
 
 // NewGRPCClient 创建内部服务grpc client
-func NewGRPCClient(conn *grpc.ClientConn, otTracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer, logger log.Logger) service.GRPC {
+func NewGRPCClient(conn *grpc.ClientConn, otTracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer, jwtToken []byte, logger log.Logger) service.GRPC {
 	limiter := ratelimit.NewErroringLimiter(rate.NewLimiter(rate.Every(time.Second*1/1024), 102400))
+	jwtEndpoint := jwt.NewSigner("kid-gate", jwtToken, jwtgo.SigningMethodHS256, jwt.StandardClaimsFactory())
 	// global client middlewares
 	var options []grpctransport.ClientOption
 	if zipkinTracer != nil {
@@ -97,14 +100,15 @@ func NewGRPCClient(conn *grpc.ClientConn, otTracer stdopentracing.Tracer, zipkin
 	var callEndpoint endpoint.Endpoint
 	{
 		callEndpoint = grpctransport.NewClient(conn,
-			"pb.InternalServer",
+			"pb.Internal",
 			"Call",
 			encodeGRPRequest,
 			decodeGRPCResponse,
 			pb.Response{},
-			grpctransport.ClientBefore(opentracing.ContextToGRPC(otTracer, logger), jwt.ContextToGRPC()),
+			grpctransport.ClientBefore(jwt.ContextToGRPC()),
 		).Endpoint()
 
+		callEndpoint = jwtEndpoint(callEndpoint)
 		callEndpoint = opentracing.TraceClient(otTracer, "Call")(callEndpoint)
 		callEndpoint = limiter(callEndpoint)
 		callEndpoint = circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{
@@ -119,8 +123,8 @@ func NewGRPCClient(conn *grpc.ClientConn, otTracer stdopentracing.Tracer, zipkin
 }
 
 // MakeInstancer 创建服务实例
-func MakeInstancer(client etcdv3.Client, firefix string, logger log.Logger) (sd.Instancer, error) {
-	return etcdv3.NewInstancer(client, service.MakeKey(firefix, ""), logger)
+func MakeInstancer(client etcdv3.Client, key string, logger log.Logger) (sd.Instancer, error) {
+	return etcdv3.NewInstancer(client, key, logger)
 }
 
 // MakeRetry 创建Subscribe方法的客户调用
@@ -181,14 +185,19 @@ func makeStreamEndpoint(conn *grpc.ClientConn) endpoint.Endpoint {
 }
 
 // MakeFactoryCall Call
-func MakeFactoryCall(logger log.Logger, otTracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) sd.Factory {
+func MakeFactoryCall(logger log.Logger, otTracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer, jwtToken []byte) sd.Factory {
 	return func(instance string) (endpoint.Endpoint, io.Closer, error) {
-		conn, err := grpc.Dial(instance, grpc.WithInsecure())
+		value, err := services.RegValueFromString(instance)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		s := NewGRPCClient(conn, otTracer, zipkinTracer, logger)
+		conn, err := grpc.Dial(value.IP+":"+value.Port, grpc.WithInsecure())
+		if err != nil {
+			return nil, nil, err
+		}
+
+		s := NewGRPCClient(conn, otTracer, zipkinTracer, jwtToken, logger)
 		doEndpoint := agentendpoint.MakeCallEndpoint(s)
 		return doEndpoint, conn, nil
 	}

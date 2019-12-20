@@ -10,18 +10,20 @@ import (
 
 	"github.com/doublemo/balala/agent/session"
 	"github.com/doublemo/balala/cores/process"
+	"github.com/doublemo/balala/cores/services"
 	"github.com/gin-gonic/gin"
 	"github.com/go-kit/kit/log"
 	kitlog "github.com/go-kit/kit/log/level"
 	"github.com/gorilla/websocket"
 )
 
-func makeWebsocketRuntimeActor(opts *Options, store *session.Store, logger log.Logger) *process.RuntimeActor {
+func makeWebsocketRuntimeActor(serviceOpts *services.Options, opts *Options, store *session.Store, logger log.Logger) *process.RuntimeActor {
 	websocketOpts := opts.WebSocket
 	if websocketOpts == nil {
 		return nil
 	}
 
+	serviceOpts.Params["websocket"] = websocketOpts.Addr
 	r := gin.New()
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())

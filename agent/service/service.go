@@ -21,7 +21,7 @@ const (
 type Value struct {
 	ID            int32  `json:"id"`
 	Name          string `json:"n"`
-	LocalID       string `json:"ip"`
+	LocalIP       string `json:"ip"`
 	MachineID     string `json:"-"`
 	GRPCAddr      string `json:"ga"`
 	HTTPAddr      string `json:"ha"`

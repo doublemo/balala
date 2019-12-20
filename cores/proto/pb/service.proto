@@ -14,6 +14,7 @@ message Header {
     int32   V           = 3;
     int32   From        = 4;
     string  FromAddress = 5;
+    int32   Method      = 6;
 }
 
 message Request{
