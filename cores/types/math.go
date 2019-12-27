@@ -4,6 +4,7 @@
 package types
 
 import (
+	"math"
 	"reflect"
 )
 
@@ -18,4 +19,10 @@ func HasElem(s, elem interface{}) bool {
 		}
 	}
 	return false
+}
+
+// Round 四舍五入保留小数点位数
+func Round(f float64, n int) float64 {
+	pow10N := math.Pow10(n)
+	return math.Trunc((f+0.5/pow10N)*pow10N) / pow10N
 }

@@ -24,7 +24,9 @@ import (
 	"github.com/go-kit/kit/metrics/prometheus"
 	kitgrpc "github.com/go-kit/kit/transport/grpc"
 	stdopentracing "github.com/opentracing/opentracing-go"
+	zipkinot "github.com/openzipkin-contrib/zipkin-go-opentracing"
 	stdzipkin "github.com/openzipkin/zipkin-go"
+	zipkinhttp "github.com/openzipkin/zipkin-go/reporter/http"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -135,9 +137,17 @@ func makeGRPCRuntimeActor(serviceOpts *services.Options, opts *Options, store *s
 		}, []string{"method"})
 	}
 
-	tracer := stdopentracing.GlobalTracer() // no-op
-	zipkinTracer, _ := stdzipkin.NewTracer(nil, stdzipkin.WithNoopTracer(true))
+	reporter := zipkinhttp.NewReporter("http://192.168.31.20:9411/api/v2/spans")
+	zEP, _ := stdzipkin.NewEndpoint("agent", port)
 
+	tracer := stdopentracing.GlobalTracer() // no-op
+	//zipkinTracer, _ := stdzipkin.NewTracer(nil, stdzipkin.WithNoopTracer(true))
+	zipkinTracer, err := stdzipkin.NewTracer(reporter, stdzipkin.WithLocalEndpoint(zEP))
+	if err != nil {
+		return nil, err
+	}
+
+	tracer = zipkinot.Wrap(zipkinTracer)
 	var (
 		s          = newBaseGRPCServer(logger)
 		endpoints  = endpoint.NewSet(s, logger, duration, counter, tracer, zipkinTracer, makeKeyFuncByJWT(opts.ServiceSecurityKey))
@@ -164,6 +174,7 @@ func makeGRPCRuntimeActor(serviceOpts *services.Options, opts *Options, store *s
 
 		Close: func() {
 			logger.Log("transport", "grpc", "on", "shutdown")
+			reporter.Close()
 			lis.Close()
 		},
 	}, nil

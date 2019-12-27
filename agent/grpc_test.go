@@ -13,7 +13,9 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/sd/etcdv3"
 	stdopentracing "github.com/opentracing/opentracing-go"
+	zipkinot "github.com/openzipkin-contrib/zipkin-go-opentracing"
 	stdzipkin "github.com/openzipkin/zipkin-go"
+	zipkinhttp "github.com/openzipkin/zipkin-go/reporter/http"
 )
 
 func TestGRPC(t *testing.T) {
@@ -39,9 +41,18 @@ func TestGRPC(t *testing.T) {
 		return
 	}
 
-	tracer := stdopentracing.GlobalTracer() // no-op
-	zipkinTracer, _ := stdzipkin.NewTracer(nil, stdzipkin.WithNoopTracer(true))
+	//tracer := stdopentracing.GlobalTracer() // no-op
+	//zipkinTracer, _ := stdzipkin.NewTracer(nil, stdzipkin.WithNoopTracer(true))
 
+	reporter := zipkinhttp.NewReporter("http://192.168.31.20:9411/api/v2/spans")
+	defer reporter.Close()
+
+	zEP, _ := stdzipkin.NewEndpoint("agent", "9094")
+	tracer := stdopentracing.GlobalTracer() // no-op
+
+	//zipkinTracer, _ := stdzipkin.NewTracer(nil, stdzipkin.WithNoopTracer(true))
+	zipkinTracer, err := stdzipkin.NewTracer(reporter, stdzipkin.WithLocalEndpoint(zEP))
+	tracer = zipkinot.Wrap(zipkinTracer)
 	factory := transport.MakeFactoryCall(logger, tracer, zipkinTracer, []byte("balala"))
 	fn := transport.MakeRetry(instancer, factory, 1, 500*time.Millisecond, logger)
 	t.Log(fn)
