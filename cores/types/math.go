@@ -23,6 +23,12 @@ func HasElem(s, elem interface{}) bool {
 
 // Round 四舍五入保留小数点位数
 func Round(f float64, n int) float64 {
+	var m float64
+	m = 0.5
+	if f < 0 {
+		m = -0.5
+	}
+
 	pow10N := math.Pow10(n)
-	return math.Trunc((f+0.5/pow10N)*pow10N) / pow10N
+	return math.Trunc((f+m/pow10N)*pow10N) / pow10N
 }
