@@ -3,11 +3,13 @@ module github.com/doublemo/balala
 go 1.13
 
 require (
+	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/coreos/bbolt v1.3.3 // indirect
 	github.com/coreos/etcd v3.3.18+incompatible // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
+	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
@@ -35,10 +37,9 @@ require (
 	github.com/prometheus/client_model v0.0.0-20191202183732-d1d2010b5bee // indirect
 	github.com/prometheus/procfs v0.0.8 // indirect
 	github.com/satori/go.uuid v1.2.0
+	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/soheilhy/cmux v0.1.4 // indirect
 	github.com/sony/gobreaker v0.4.1
-	github.com/spf13/cobra v0.0.5 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/streadway/handy v0.0.0-20190108123426-d5acb3125c2a // indirect
 	github.com/templexxx/cpufeat v0.0.0-20180724012125-cef66df7f161 // indirect
 	github.com/templexxx/xor v0.0.0-20181023030647-4e92f724b73b // indirect
@@ -46,6 +47,8 @@ require (
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5 // indirect
 	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect
 	github.com/xtaci/kcp-go v5.4.19+incompatible
+	github.com/xtaci/lossyconn v0.0.0-20200209145036-adba10fffc37 // indirect
+	go.etcd.io/bbolt v1.3.4 // indirect
 	go.etcd.io/etcd v3.3.18+incompatible // indirect
 	go.uber.org/atomic v1.5.1 // indirect
 	go.uber.org/multierr v1.4.0 // indirect
@@ -53,7 +56,7 @@ require (
 	golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413
 	golang.org/x/lint v0.0.0-20191125180803-fdd1cda4f05f // indirect
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
-	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449
+	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/tools v0.0.0-20191216052735-49a3e744a425 // indirect

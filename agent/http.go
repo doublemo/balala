@@ -5,6 +5,9 @@ package agent
 import (
 	"context"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/doublemo/balala/agent/session"
@@ -31,6 +34,10 @@ func makeHTTPRuntimeActor(serviceOpts *services.Options, opts *Options, store *s
 	if opts.Runmode == "dev" {
 		r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	}
+
+	// 代理
+	r.GET("/px", ReverseProxy())
+	r.POST("/px", ReverseProxy())
 
 	// 启动http服务
 	s := &http.Server{
@@ -61,4 +68,46 @@ func makeHTTPRuntimeActor(serviceOpts *services.Options, opts *Options, store *s
 			s.Shutdown(context.Background())
 		},
 	}
+}
+
+// ReverseProxy 实现反向代理
+func ReverseProxy() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		target, err := url.Parse("http://localhost:9090/metrics")
+		if err != nil {
+			return
+		}
+
+		targetQuery := target.RawQuery
+		director := func(req *http.Request) {
+			req.URL.Scheme = target.Scheme
+			req.URL.Host = target.Host
+			req.URL.Path = singleJoiningSlash(target.Path, req.URL.Path)
+			req.URL.Path = "/metrics"
+			if targetQuery == "" || req.URL.RawQuery == "" {
+				req.URL.RawQuery = targetQuery + req.URL.RawQuery
+			} else {
+				req.URL.RawQuery = targetQuery + "&" + req.URL.RawQuery
+			}
+			if _, ok := req.Header["User-Agent"]; !ok {
+				// explicitly disable User-Agent so it's not set to default value
+				req.Header.Set("User-Agent", "")
+			}
+		}
+
+		proxy := &httputil.ReverseProxy{Director: director}
+		proxy.ServeHTTP(ctx.Writer, ctx.Request)
+	}
+}
+
+func singleJoiningSlash(a, b string) string {
+	aslash := strings.HasSuffix(a, "/")
+	bslash := strings.HasPrefix(b, "/")
+	switch {
+	case aslash && bslash:
+		return a + b[1:]
+	case !aslash && !bslash:
+		return a + "/" + b
+	}
+	return a + b
 }

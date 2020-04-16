@@ -23,43 +23,46 @@ type Store struct {
 // 默认情况session状态为匿名,等待通过认证后将修改sid,更改状态为已认证
 func (ss *Store) NewClient(conn interface{}, sid string, readDeadline, writeDeadline time.Duration, maxMessageSize int64) *Client {
 	var s Client
-	s.Sid = sid
+	s.id = sid
 	s.flag = 0
-	s.exitChan = make(chan struct{})
+	s.die = make(chan struct{})
 	s.recvExitChan = make(chan struct{})
 	s.sendExitChan = make(chan struct{})
 	s.recvChan = make(chan []byte)
 	s.sendChan = make(chan []byte, 1024)
 	s.cacheBytes = make([]byte, 65535)
-	s.Proto = proto.None
+	s.readyedChan = make(chan struct{}, 2)
+	s.protoTypes = proto.None
 	s.logger = ss.logger
+	s.params.Store(make(map[string]interface{}))
 
 	switch c := conn.(type) {
 	case *websocket.Conn:
-		s.Proto = proto.Websocket
-		s.WebsocketConn = c
-		s.remoteAddr = c.RemoteAddr().String()
+		s.protoTypes = proto.Websocket
+		s.websocketConn = c
+		s.SetParam("RemoteAddr", c.RemoteAddr().String())
 
 	case net.Conn:
-		s.Proto = proto.Socket
-		s.SocketConn = c
-		s.remoteAddr = c.RemoteAddr().String()
+		s.protoTypes = proto.Socket
+		s.socketConn = c
+		s.SetParam("RemoteAddr", c.RemoteAddr().String())
 	}
 
-	if s.Sid == "" {
-		s.Sid = uuid.NewV4().String()
+	if s.id == "" {
+		s.id = uuid.NewV4().String()
 	}
 
-	s.CreateAt = time.Now()
+	s.SetParam("CreateAt", time.Now())
 
-	readyed := make(chan bool)
-	go s.recv(readDeadline, maxMessageSize, readyed)
-	<-readyed
+	go s.recv(readDeadline, maxMessageSize)
+	go s.send(writeDeadline)
 
-	go s.send(writeDeadline, readyed)
-	<-readyed
-	close(readyed)
-	ss.store.Store(s.Sid, &s)
+	for i := 0; i < 2; i++ {
+		<-s.readyedChan
+	}
+
+	close(s.readyedChan)
+	ss.store.Store(s.id, &s)
 	return &s
 }
 
@@ -80,7 +83,7 @@ func (ss *Store) Remove(sid string) {
 
 // Store 保存session
 func (ss *Store) Store(s *Client) {
-	ss.store.Store(s.Sid, s)
+	ss.store.Store(s.id, s)
 }
 
 // RemoveAndExit 删除session并退出

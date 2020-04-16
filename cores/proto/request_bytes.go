@@ -10,8 +10,6 @@ type RequestBytes struct {
 	Ver     int8
 	Cmd     Command
 	SubCmd  Command
-	P       int
-	PCount  int
 	SeqID   uint32
 	Content []byte
 }
@@ -48,21 +46,10 @@ func (req *RequestBytes) Marshal() ([]byte, error) {
 	}
 
 	var b BytesBuffer
+	b.WriteInt8(req.Ver)
 	b.WriteUint32(req.SeqID)
-	b.WriteInt8(int8(req.PCount))
-	if req.PCount > 1 {
-		b.WriteInt8(int8(req.P))
-		if req.P <= 1 {
-			b.WriteInt8(req.Ver)
-			b.WriteInt16(int16(req.Cmd))
-			b.WriteInt16(int16(req.SubCmd))
-		}
-	} else {
-		b.WriteInt8(req.Ver)
-		b.WriteInt16(int16(req.Cmd))
-		b.WriteInt16(int16(req.SubCmd))
-	}
-
+	b.WriteInt16(req.Cmd.Int16())
+	b.WriteInt16(req.SubCmd.Int16())
 	if err := b.WriteBytes(req.Content...); err != nil {
 		return nil, err
 	}
@@ -75,10 +62,8 @@ func (req *RequestBytes) IsValid() bool {
 		return false
 	}
 
-	if req.PCount <= 1 {
-		if req.Cmd < 1 || req.SubCmd < 1 {
-			return false
-		}
+	if req.Cmd < 1 || req.SubCmd < 1 {
+		return false
 	}
 
 	if len(req.Content) < 1 {
@@ -91,47 +76,30 @@ func (req *RequestBytes) IsValid() bool {
 // Unmarshal 解析rquest 数据
 func (req *RequestBytes) Unmarshal(frame []byte) error {
 	rd := NewBytesBuffer(frame)
+	v, err := rd.ReadInt8()
+	if err != nil {
+		return err
+	}
+
 	sid, err := rd.ReadUint32()
 	if err != nil {
 		return err
 	}
 
-	count, err := rd.ReadInt8()
+	cmd, err := rd.ReadInt16()
 	if err != nil {
 		return err
 	}
 
-	if count > 1 {
-		page, err := rd.ReadInt8()
-		if err != nil {
-			return err
-		}
-		req.P = int(page)
+	subcmd, err := rd.ReadInt16()
+	if err != nil {
+		return err
 	}
 
-	if req.P <= 1 {
-		v, err := rd.ReadInt8()
-		if err != nil {
-			return err
-		}
-
-		cmd, err := rd.ReadInt16()
-		if err != nil {
-			return err
-		}
-
-		subcmd, err := rd.ReadInt16()
-		if err != nil {
-			return err
-		}
-
-		req.Ver = v
-		req.Cmd = Command(cmd)
-		req.SubCmd = Command(subcmd)
-	}
-
+	req.Ver = v
 	req.SeqID = sid
-	req.PCount = int(count)
+	req.Cmd = Command(cmd)
+	req.SubCmd = Command(subcmd)
 	req.Content = rd.Bytes()
 	return nil
 }

@@ -66,6 +66,9 @@ type SocketOptions struct {
 
 	// WriteDeadline 写入超时
 	WriteDeadline int `alias:"writedeadline"`
+
+	// RPMLimit per connection rpm limit
+	RPMLimit int `alias:"rpm" default:"200"`
 }
 
 // Clone SocketOptions
@@ -76,6 +79,7 @@ func (o *SocketOptions) Clone() *SocketOptions {
 		WriteBufferSize: o.WriteBufferSize,
 		ReadDeadline:    o.ReadDeadline,
 		WriteDeadline:   o.WriteDeadline,
+		RPMLimit:        o.RPMLimit,
 	}
 }
 
@@ -129,6 +133,9 @@ type WebSocketOptions struct {
 
 	// WriteDeadline 写入超时
 	WriteDeadline int `alias:"writedeadline"`
+
+	// RPMLimit per connection rpm limit
+	RPMLimit int `alias:"rpm" default:"200"`
 }
 
 // Clone WebSocketOptions
@@ -146,6 +153,7 @@ func (o *WebSocketOptions) Clone() *WebSocketOptions {
 		MaxMessageSize:  o.MaxMessageSize,
 		ReadDeadline:    o.ReadDeadline,
 		WriteDeadline:   o.WriteDeadline,
+		RPMLimit:        o.RPMLimit,
 	}
 }
 
@@ -194,6 +202,19 @@ func (o *ETCDOptions) Clone() *ETCDOptions {
 	}
 }
 
+// TracerOptions 请求运行追踪
+type TracerOptions struct {
+	// ReporterURL 追踪服务地址 eg:http://192.168.31.20:9411/api/v2/spans
+	ReporterURL string `alias:"reporterurl"`
+}
+
+// Clone ETCDOptions
+func (o *TracerOptions) Clone() *TracerOptions {
+	return &TracerOptions{
+		ReporterURL: o.ReporterURL,
+	}
+}
+
 // Options 配置参数
 type Options struct {
 	// 当前服务的唯一标识
@@ -226,6 +247,9 @@ type Options struct {
 
 	// ServiceSecurityKey JWT 服务之通信认证
 	ServiceSecurityKey string `alias:"servicesecuritykey"`
+
+	// Tracer 请求运行追踪
+	Tracer *TracerOptions `alias:"tracer"`
 }
 
 // Clone 克隆配置文件防止调用配置文件时造成冲突
@@ -265,6 +289,10 @@ func (o *Options) Clone() *Options {
 
 	if o.ETCD != nil {
 		copy.ETCD = o.ETCD.Clone()
+	}
+
+	if o.Tracer != nil {
+		copy.Tracer = o.Tracer.Clone()
 	}
 
 	copy.ServiceSecurityKey = o.ServiceSecurityKey

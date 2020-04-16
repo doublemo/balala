@@ -26,6 +26,7 @@ import (
 	stdopentracing "github.com/opentracing/opentracing-go"
 	zipkinot "github.com/openzipkin-contrib/zipkin-go-opentracing"
 	stdzipkin "github.com/openzipkin/zipkin-go"
+	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
 	zipkinhttp "github.com/openzipkin/zipkin-go/reporter/http"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
@@ -137,12 +138,18 @@ func makeGRPCRuntimeActor(serviceOpts *services.Options, opts *Options, store *s
 		}, []string{"method"})
 	}
 
-	reporter := zipkinhttp.NewReporter("http://192.168.31.20:9411/api/v2/spans")
-	zEP, _ := stdzipkin.NewEndpoint("agent", port)
-
 	tracer := stdopentracing.GlobalTracer() // no-op
-	//zipkinTracer, _ := stdzipkin.NewTracer(nil, stdzipkin.WithNoopTracer(true))
-	zipkinTracer, err := stdzipkin.NewTracer(reporter, stdzipkin.WithLocalEndpoint(zEP))
+
+	var reporter zipkinreporter.Reporter
+	zipkinTracer, err := stdzipkin.NewTracer(nil, stdzipkin.WithNoopTracer(true))
+	if opts.Tracer != nil && opts.Tracer.ReporterURL != "" {
+
+		// some http://192.168.31.20:9411/api/v2/spans
+		reporter = zipkinhttp.NewReporter(opts.Tracer.ReporterURL)
+		zEP, _ := stdzipkin.NewEndpoint("agent", port)
+		zipkinTracer, err = stdzipkin.NewTracer(reporter, stdzipkin.WithLocalEndpoint(zEP))
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +181,10 @@ func makeGRPCRuntimeActor(serviceOpts *services.Options, opts *Options, store *s
 
 		Close: func() {
 			logger.Log("transport", "grpc", "on", "shutdown")
-			reporter.Close()
+			if reporter != nil {
+				reporter.Close()
+			}
+
 			lis.Close()
 		},
 	}, nil

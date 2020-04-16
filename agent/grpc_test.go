@@ -61,6 +61,5 @@ func TestGRPC(t *testing.T) {
 		Body:    make([]byte, 1),
 		Command: 11,
 	})
-
 	t.Log(ret, err)
 }

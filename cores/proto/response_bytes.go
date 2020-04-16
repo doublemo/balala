@@ -5,6 +5,7 @@ package proto
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/doublemo/balala/cores/proto/pb"
@@ -16,8 +17,6 @@ type ResponseBytes struct {
 	Ver     int8
 	Cmd     Command
 	SubCmd  Command
-	P       int
-	PCount  int
 	SeqID   uint32
 	Content []byte
 	Err     error
@@ -74,24 +73,14 @@ func (resp *ResponseBytes) Marshal() ([]byte, error) {
 	}
 
 	var b BytesBuffer
+	b.WriteInt8(resp.Ver)
 	b.WriteUint32(resp.SeqID)
-	b.WriteInt8(int8(resp.PCount))
-	if resp.PCount > 1 {
-		b.WriteInt8(int8(resp.P))
-		if resp.P <= 1 {
-			b.WriteInt8(resp.Ver)
-			b.WriteInt16(int16(resp.Cmd))
-			b.WriteInt16(int16(resp.SubCmd))
-		}
-	} else {
-		b.WriteInt8(resp.Ver)
-		b.WriteInt16(int16(resp.Cmd))
-		b.WriteInt16(int16(resp.SubCmd))
-	}
-
+	b.WriteInt16(resp.Cmd.Int16())
+	b.WriteInt16(resp.SubCmd.Int16())
 	if err := b.WriteBytes(resp.Content...); err != nil {
 		return nil, err
 	}
+
 	return b.Data(), nil
 }
 
@@ -101,10 +90,8 @@ func (resp *ResponseBytes) IsValid() bool {
 		return false
 	}
 
-	if resp.PCount <= 1 {
-		if resp.Cmd < 1 || resp.SubCmd < 1 {
-			return false
-		}
+	if resp.Cmd < 1 || resp.SubCmd < 1 {
+		return false
 	}
 
 	if len(resp.Content) < 1 {
@@ -117,48 +104,40 @@ func (resp *ResponseBytes) IsValid() bool {
 // Unmarshal 解析rquest 数据
 func (resp *ResponseBytes) Unmarshal(frame []byte) error {
 	rd := NewBytesBuffer(frame)
+	v, err := rd.ReadInt8()
+	if err != nil {
+		return err
+	}
+
 	sid, err := rd.ReadUint32()
 	if err != nil {
 		return err
 	}
 
-	count, err := rd.ReadInt8()
+	cmd, err := rd.ReadInt16()
 	if err != nil {
 		return err
 	}
 
-	if count > 1 {
-		page, err := rd.ReadInt8()
-		if err != nil {
-			return err
-		}
-		resp.P = int(page)
+	subcmd, err := rd.ReadInt16()
+	if err != nil {
+		return err
 	}
 
-	if resp.P <= 1 {
-		v, err := rd.ReadInt8()
-		if err != nil {
-			return err
-		}
-
-		cmd, err := rd.ReadInt16()
-		if err != nil {
-			return err
-		}
-
-		subcmd, err := rd.ReadInt16()
-		if err != nil {
-			return err
-		}
-
-		resp.Ver = v
-		resp.Cmd = Command(cmd)
-		resp.SubCmd = Command(subcmd)
-	}
-
+	resp.Ver = v
 	resp.SeqID = sid
-	resp.PCount = int(count)
+	resp.Cmd = Command(cmd)
+	resp.SubCmd = Command(subcmd)
 	resp.Content = rd.Bytes()
+
+	if resp.SubCmd == InternalBad {
+		resp.Err = fmt.Errorf("%d", InternalBad)
+		bad := &pb.Bad{}
+		if err := proto.Unmarshal(resp.Content, bad); err == nil {
+			resp.Err = fmt.Errorf("%d", bad.Code)
+		}
+	}
+
 	return nil
 }
 

@@ -92,10 +92,10 @@ func webscoketHandler(w http.ResponseWriter, req *http.Request, upgrader websock
 	sess := store.NewClient(conn, "", time.Duration(websocketOpts.ReadDeadline)*time.Second, time.Duration(websocketOpts.WriteDeadline)*time.Second, websocketOpts.MaxMessageSize)
 	defer func() {
 		// 删除session 并关闭相服务
-		store.RemoveAndExit(sess.Sid)
+		store.RemoveAndExit(sess.ID())
 		close(exit)
 		conn.Close()
 	}()
 
-	//socketClient(sess, exit, logger)
+	socketLoop(sess, exit, websocketOpts.RPMLimit, logger)
 }

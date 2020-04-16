@@ -3,7 +3,7 @@
     "go.lintTool":"golint",
     "go.useCodeSnippetsOnFunctionSuggest": true,
     "go.toolsGopath":"D:/works/bin13",
-    "go.gopath":"C:/Users/randy/go",
+    "go.gopath":"C:/Users/Administrator/go",
     "go.goroot": "C:/Go",
     "go.testFlags": ["-v", "-race"],
     "go.autocompleteUnimportedPackages": true,

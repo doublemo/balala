@@ -13,7 +13,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"runtime"
 
 	"github.com/doublemo/balala/agent"
 	"github.com/doublemo/balala/cores/services"
@@ -144,6 +143,4 @@ func main() {
 	if err := services.Run(agent.New(&serviceOpts, opts)); err != nil {
 		panic(err)
 	}
-
-	runtime.Goexit()
 }
