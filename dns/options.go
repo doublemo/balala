@@ -1,7 +1,6 @@
 // Copyright (c) 2019 The balala Authors <https://github.com/doublemo/balala>
 
-// Package agent 代理服务器
-package agent
+package dns
 
 import (
 	"errors"

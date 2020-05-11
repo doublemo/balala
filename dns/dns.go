@@ -1,30 +1,28 @@
 // Copyright (c) 2019 The balala Authors <https://github.com/doublemo/balala>
 
-// Package agent 代理服务器
-package agent
+// dns 域名分配系统
+package dns
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"os"
 	"time"
 
-	"github.com/doublemo/balala/agent/service"
-	"github.com/doublemo/balala/agent/session"
 	"github.com/doublemo/balala/cores/process"
 	"github.com/doublemo/balala/cores/services"
 	"github.com/doublemo/balala/cores/utils"
+	"github.com/doublemo/balala/dns/service"
+	"github.com/doublemo/balala/dns/session"
 	"github.com/gin-gonic/gin"
 	"github.com/go-kit/kit/log"
 	kitlog "github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/sd/etcdv3"
 )
 
-// Agent 代理服务器
-// 代理服务器支持通过服务接口
-type Agent struct {
+// DNS 域名分配
+type DNS struct {
 	// exitChan 退出信息
 	exitChan chan struct{}
 
@@ -54,12 +52,10 @@ type Agent struct {
 }
 
 // Start 启动服务
-func (s *Agent) Start() {
+func (s *DNS) Start() {
 	defer func() {
 		close(s.exitChan)
 	}()
-
-	rand.Seed(time.Now().UnixNano())
 
 	// 读取一个配置文件副本
 	opts := s.configureOptions.Read()
@@ -97,69 +93,69 @@ func (s *Agent) Start() {
 }
 
 // Readyed 返回服务准备就绪信号
-func (s *Agent) Readyed() bool {
+func (s *DNS) Readyed() bool {
 	<-s.readyedChan
 	return true
 }
 
 // Shutdown 关闭服务
-func (s *Agent) Shutdown() {
+func (s *DNS) Shutdown() {
 	kitlog.Debug(s.logger).Log("Agent", "shutdown")
 	s.process.Stop()
 }
 
 // Reload 重新加载服务
-func (s *Agent) Reload() {}
+func (s *DNS) Reload() {}
 
 // ServiceName 返回唯一服务名称
-func (s *Agent) ServiceName() string {
+func (s *DNS) ServiceName() string {
 	return service.Name
 }
 
 // ServiceID 返回服务唯一服务编号
-func (s *Agent) ServiceID() int32 {
+func (s *DNS) ServiceID() int32 {
 	return service.ID
 }
 
 // OtherCommand 响应其他自定义命令
-func (s *Agent) OtherCommand(cmd int) {}
+func (s *DNS) OtherCommand(cmd int) {}
 
 // QuitCh 退出信息号
-func (s *Agent) QuitCh() <-chan struct{} {
+func (s *DNS) QuitCh() <-chan struct{} {
 	return s.exitChan
 }
 
 // Fatalf Fatal信息处理
-func (s *Agent) Fatalf(format string, args ...interface{}) {
+func (s *DNS) Fatalf(format string, args ...interface{}) {
 	kitlog.Error(s.logger).Log("fatal", fmt.Sprintf(format, args...))
 }
 
 // Errorf Error信息处理
-func (s *Agent) Errorf(format string, args ...interface{}) {
+func (s *DNS) Errorf(format string, args ...interface{}) {
 	kitlog.Error(s.logger).Log("error", fmt.Sprintf(format, args...))
 }
 
 // Warnf Warn信息处理
-func (s *Agent) Warnf(format string, args ...interface{}) {
+func (s *DNS) Warnf(format string, args ...interface{}) {
 	kitlog.Warn(s.logger).Log("wran", fmt.Sprintf(format, args...))
 }
 
 // Debugf Debug信息处理
-func (s *Agent) Debugf(format string, args ...interface{}) {
+func (s *DNS) Debugf(format string, args ...interface{}) {
 	kitlog.Debug(s.logger).Log("debug", fmt.Sprintf(format, args...))
 }
 
 // Tracef Trace信息处理
-func (s *Agent) Tracef(format string, args ...interface{}) {
+func (s *DNS) Tracef(format string, args ...interface{}) {
 	kitlog.Info(s.logger).Log("trace", fmt.Sprintf(format, args...))
 }
 
 // Printf Print信息处理
-func (s *Agent) Printf(format string, args ...interface{}) {
+func (s *DNS) Printf(format string, args ...interface{}) {
 	kitlog.Info(s.logger).Log("info", fmt.Sprintf(format, args...))
 }
 
-func (s *Agent) makeEtcdv3Client() error {
+func (s *DNS) makeEtcdv3Client() error {
 	opts := s.configureOptions.Read()
 	if opts.ETCD == nil {
 		return errors.New("ETCD options is nil")
@@ -184,7 +180,7 @@ func (s *Agent) makeEtcdv3Client() error {
 	return nil
 }
 
-func (s *Agent) makeServices() (*process.RuntimeActor, error) {
+func (s *DNS) makeServices() (*process.RuntimeActor, error) {
 	opts := s.configureOptions.Read()
 	if opts.ETCD == nil {
 		return nil, errors.New("ETCD options is nil")
@@ -232,7 +228,7 @@ func (s *Agent) makeServices() (*process.RuntimeActor, error) {
 	}, nil
 }
 
-func (s *Agent) mustRuntimeActor(actor *process.RuntimeActor, err error) *process.RuntimeActor {
+func (s *DNS) mustRuntimeActor(actor *process.RuntimeActor, err error) *process.RuntimeActor {
 	if err != nil {
 		kitlog.Error(s.logger).Log("error", err)
 		panic(err)
@@ -242,9 +238,9 @@ func (s *Agent) mustRuntimeActor(actor *process.RuntimeActor, err error) *proces
 }
 
 // New 创建网关服务
-func New(serviceOpts *services.Options, opts *ConfigureOptions) *Agent {
+func New(serviceOpts *services.Options, opts *ConfigureOptions) *DNS {
 	logger := log.NewLogfmtLogger(os.Stderr)
-	logger = log.WithPrefix(logger, "o", "[BA]")
+	logger = log.WithPrefix(logger, "o", "[BDNS]")
 	if opts.Read().Runmode == "dev" {
 		logger = kitlog.NewFilter(logger, kitlog.AllowAll())
 	} else {
@@ -254,7 +250,7 @@ func New(serviceOpts *services.Options, opts *ConfigureOptions) *Agent {
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
 	logger = log.With(logger, "caller", log.DefaultCaller)
 
-	return &Agent{
+	return &DNS{
 		exitChan:         make(chan struct{}),
 		readyedChan:      make(chan struct{}),
 		configureOptions: opts,

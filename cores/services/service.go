@@ -29,8 +29,30 @@ type Options struct {
 	// Port 当前提供内网服务的端口
 	Port string `json:"port"`
 
+	// 优先级, 优先级越高比率越大,0 则不产生
+	Priority int `json:"pi"`
+
 	// Params 其它参数
 	Params map[string]string `json:"p"`
+}
+
+// Clone 克隆
+func (o *Options) Clone() *Options {
+	opts := &Options{
+		ID:        o.ID,
+		Name:      o.Name,
+		MachineID: o.MachineID,
+		IP:        o.IP,
+		Port:      o.Port,
+		Priority:  o.Priority,
+		Params:    make(map[string]string),
+	}
+
+	for k, v := range o.Params {
+		opts.Params[k] = v
+	}
+
+	return opts
 }
 
 // Run 启动服务

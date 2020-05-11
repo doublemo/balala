@@ -1,7 +1,6 @@
 // Copyright (c) 2019 The balala Authors <https://github.com/doublemo/balala>
 
-// Package agent 代理服务器
-package agent
+package robot
 
 import (
 	"errors"
@@ -50,39 +49,6 @@ func (o *HTTPOptions) Clone() *HTTPOptions {
 	}
 }
 
-// SocketOptions tcp参数
-type SocketOptions struct {
-	// Addr 监听地址
-	Addr string `alias:"addr" default:":9091"`
-
-	// ReadBufferSize 读取缓存大小 32767
-	ReadBufferSize int `alias:"readbuffersize" default:"32767"`
-
-	// WriteBufferSize 写入缓存大小 32767
-	WriteBufferSize int `alias:"writebuffersize" default:"32767"`
-
-	// ReadDeadline 读取超时
-	ReadDeadline int `alias:"readdeadline" default:"310"`
-
-	// WriteDeadline 写入超时
-	WriteDeadline int `alias:"writedeadline"`
-
-	// RPMLimit per connection rpm limit
-	RPMLimit int `alias:"rpm" default:"200"`
-}
-
-// Clone SocketOptions
-func (o *SocketOptions) Clone() *SocketOptions {
-	return &SocketOptions{
-		Addr:            o.Addr,
-		ReadBufferSize:  o.ReadBufferSize,
-		WriteBufferSize: o.WriteBufferSize,
-		ReadDeadline:    o.ReadDeadline,
-		WriteDeadline:   o.WriteDeadline,
-		RPMLimit:        o.RPMLimit,
-	}
-}
-
 // GRPCOptions GRP参数
 type GRPCOptions struct {
 	// Addr 监听地址
@@ -93,67 +59,6 @@ type GRPCOptions struct {
 func (o *GRPCOptions) Clone() *GRPCOptions {
 	return &GRPCOptions{
 		Addr: o.Addr,
-	}
-}
-
-// WebSocketOptions websocket配置
-type WebSocketOptions struct {
-	// Addr 监听地址
-	Addr string `alias:"addr" default:":9093"`
-
-	// ReadTimeout http服务读取超时
-	ReadTimeout int `alias:"readtimeout" default:"10"`
-
-	// WriteTimeout http服务写入超时
-	WriteTimeout int `alias:"writetimeout" default:"10"`
-
-	// MaxHeaderBytes  http内容大小限制
-	MaxHeaderBytes int `alias:"maxheaderbytes" default:"1048576"`
-
-	// SSL ssl 支持
-	SSL bool `alias:"ssl" default:"false"`
-
-	// Key 证书key
-	Key string `alias:"key"`
-
-	// SSLCert 证书
-	Cert string `alias:"cert"`
-
-	// ReadBufferSize 读取缓存大小 32767
-	ReadBufferSize int `alias:"readbuffersize" default:"32767"`
-
-	// WriteBufferSize 写入缓存大小 32767
-	WriteBufferSize int `alias:"writebuffersize" default:"32767"`
-
-	// MaxMessageSize WebSocket每帧最在数据大小
-	MaxMessageSize int64 `alias:"maxmessagesize" default:"1024"`
-
-	// ReadDeadline 读取超时
-	ReadDeadline int `alias:"readdeadline" default:"310"`
-
-	// WriteDeadline 写入超时
-	WriteDeadline int `alias:"writedeadline"`
-
-	// RPMLimit per connection rpm limit
-	RPMLimit int `alias:"rpm" default:"200"`
-}
-
-// Clone WebSocketOptions
-func (o *WebSocketOptions) Clone() *WebSocketOptions {
-	return &WebSocketOptions{
-		Addr:            o.Addr,
-		ReadTimeout:     o.ReadTimeout,
-		WriteTimeout:    o.WriteTimeout,
-		MaxHeaderBytes:  o.MaxHeaderBytes,
-		SSL:             o.SSL,
-		Key:             o.Key,
-		Cert:            o.Cert,
-		ReadBufferSize:  o.ReadBufferSize,
-		WriteBufferSize: o.WriteBufferSize,
-		MaxMessageSize:  o.MaxMessageSize,
-		ReadDeadline:    o.ReadDeadline,
-		WriteDeadline:   o.WriteDeadline,
-		RPMLimit:        o.RPMLimit,
 	}
 }
 
@@ -202,19 +107,6 @@ func (o *ETCDOptions) Clone() *ETCDOptions {
 	}
 }
 
-// TracerOptions 请求运行追踪
-type TracerOptions struct {
-	// ReporterURL 追踪服务地址 eg:http://192.168.31.20:9411/api/v2/spans
-	ReporterURL string `alias:"reporterurl"`
-}
-
-// Clone ETCDOptions
-func (o *TracerOptions) Clone() *TracerOptions {
-	return &TracerOptions{
-		ReporterURL: o.ReporterURL,
-	}
-}
-
 // Options 配置参数
 type Options struct {
 	// 当前服务的唯一标识
@@ -229,30 +121,18 @@ type Options struct {
 	// Domain string 提供服务的域名
 	Domain string `alias:"domain"`
 
-	// Priority 优先级
-	Priority int `alias:"priority" default:"1"`
-
 	// HTTP http(s) 监听端口
 	// 利用http实现信息GET/POST, webscoket 也会这个端口甚而上实现
 	HTTP *HTTPOptions `alias:"http"`
 
-	// Socket 将支持tcp流服务
-	Socket *SocketOptions `alias:"socket"`
-
 	// GRPC 将支持GRPC服务
 	GRPC *GRPCOptions `alias:"grpc"`
-
-	// WebSocket 将支持WebSocket服务
-	WebSocket *WebSocketOptions `alias:"websocket"`
 
 	// ETCD etcd
 	ETCD *ETCDOptions `alias:"etcd"`
 
 	// ServiceSecurityKey JWT 服务之通信认证
 	ServiceSecurityKey string `alias:"servicesecuritykey"`
-
-	// Tracer 请求运行追踪
-	Tracer *TracerOptions `alias:"tracer"`
 }
 
 // Clone 克隆配置文件防止调用配置文件时造成冲突
@@ -260,7 +140,6 @@ func (o *Options) Clone() *Options {
 	copy := Options{}
 	copy.ID = o.ID
 	copy.Runmode = o.Runmode
-	copy.Priority = o.Priority
 	if o.LocalIP == "" {
 		if m, err := networks.LocalIP(); err == nil {
 			copy.LocalIP = m.String()
@@ -279,24 +158,12 @@ func (o *Options) Clone() *Options {
 		copy.HTTP = o.HTTP.Clone()
 	}
 
-	if o.Socket != nil {
-		copy.Socket = o.Socket.Clone()
-	}
-
 	if o.GRPC != nil {
 		copy.GRPC = o.GRPC.Clone()
 	}
 
-	if o.WebSocket != nil {
-		copy.WebSocket = o.WebSocket.Clone()
-	}
-
 	if o.ETCD != nil {
 		copy.ETCD = o.ETCD.Clone()
-	}
-
-	if o.Tracer != nil {
-		copy.Tracer = o.Tracer.Clone()
 	}
 
 	copy.ServiceSecurityKey = o.ServiceSecurityKey

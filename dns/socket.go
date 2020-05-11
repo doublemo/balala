@@ -1,6 +1,6 @@
 // Copyright (c) 2019 The balala Authors <https://github.com/doublemo/balala>
 
-package agent
+package dns
 
 import (
 	"errors"
@@ -9,11 +9,11 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/doublemo/balala/agent/session"
 	"github.com/doublemo/balala/cores/networks"
 	"github.com/doublemo/balala/cores/process"
 	"github.com/doublemo/balala/cores/proto"
 	"github.com/doublemo/balala/cores/services"
+	"github.com/doublemo/balala/dns/session"
 	"github.com/go-kit/kit/log"
 	kitlog "github.com/go-kit/kit/log/level"
 )
@@ -144,6 +144,5 @@ func handleFrame(sess *session.Client, frame []byte, logger log.Logger) ([]byte,
 	if req.SID() != sess.SID() {
 		return nil, errors.New("ErrorInvalidSEQID")
 	}
-
 	return nil, nil
 }
