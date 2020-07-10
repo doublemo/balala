@@ -1,0 +1,45 @@
+// Copyright (c) 2019 The balala Authors <https://github.com/doublemo/balala>
+// 内部通信协议
+syntax = "proto3";
+package pb;
+
+service SessionStateServer {
+    rpc Subscribe(stream SessionStateServerAPI.Nil) returns (stream SessionStateServerAPI.BroadcastResponse) {};
+    rpc Broadcast(SessionStateServerAPI.BroadcastRequest) returns(SessionStateServerAPI.BroadcastResponse){};
+    rpc New(SessionStateServerAPI.NewRequest) returns (SessionStateServerAPI.Nil) {};
+    rpc Remove(SessionStateServerAPI.NewRequest) returns (SessionStateServerAPI.Nil) {};
+    rpc Params(SessionStateServerAPI.NewRequest) returns (SessionStateServerAPI.Nil) {};
+}
+
+
+message SessionStateServerAPI {
+    message Nil {};
+
+    message Param {
+        string key = 1;
+        bytes  Value = 2;
+    }
+
+    message Event{
+        int32 Action = 1; // 事件
+        uint64 UID   = 2; // 连接ID
+        bytes  Body  = 3; // 事件内容
+    }
+
+    message EventChangeParam {
+        repeated Param Values = 1;
+    }
+
+    message BroadcastRequest{
+        repeated Event Actions = 1; // 事件
+    };
+
+    message BroadcastResponse{
+        repeated Event Actions = 1; // 事件
+    };
+
+    message NewRequest{
+        uint64 UID = 1; 
+        repeated Param Params = 2;
+    };
+}

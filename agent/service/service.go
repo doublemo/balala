@@ -11,9 +11,6 @@ import (
 const (
 	// 软件运行时显示的服务名称
 	Name string = "agent"
-
-	// 软件运行时用于识别的服务ID
-	ID int32 = 1
 )
 
 var Caches = services.NewCaches()

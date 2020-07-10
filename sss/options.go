@@ -1,4 +1,6 @@
-package robot
+// Copyright (c) 2019 The balala Authors <https://github.com/doublemo/balala>
+
+package sss
 
 import (
 	"errors"
@@ -20,19 +22,6 @@ type GRPCOptions struct {
 func (o *GRPCOptions) Clone() *GRPCOptions {
 	return &GRPCOptions{
 		Addr: o.Addr,
-	}
-}
-
-// TracerOptions 请求运行追踪
-type TracerOptions struct {
-	// ReporterURL 追踪服务地址 eg:http://192.168.31.20:9411/api/v2/spans
-	ReporterURL string `alias:"reporterurl"`
-}
-
-// Clone ETCDOptions
-func (o *TracerOptions) Clone() *TracerOptions {
-	return &TracerOptions{
-		ReporterURL: o.ReporterURL,
 	}
 }
 
@@ -81,7 +70,20 @@ func (o *ETCDOptions) Clone() *ETCDOptions {
 	}
 }
 
-// Options 配置
+// TracerOptions 请求运行追踪
+type TracerOptions struct {
+	// ReporterURL 追踪服务地址 eg:http://192.168.31.20:9411/api/v2/spans
+	ReporterURL string `alias:"reporterurl"`
+}
+
+// Clone ETCDOptions
+func (o *TracerOptions) Clone() *TracerOptions {
+	return &TracerOptions{
+		ReporterURL: o.ReporterURL,
+	}
+}
+
+// Options 配置参数
 type Options struct {
 	// 当前服务的唯一标识
 	ID string `alias:"id" default:"agent"`
@@ -144,7 +146,6 @@ func (o *Options) Clone() *Options {
 	}
 
 	copy.ServiceSecurityKey = o.ServiceSecurityKey
-
 	return &copy
 }
 

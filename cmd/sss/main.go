@@ -15,9 +15,9 @@ import (
 	"os"
 
 	"github.com/doublemo/balala/cores/services"
-	"github.com/doublemo/balala/dns"
-	"github.com/doublemo/balala/dns/service"
 	"github.com/doublemo/balala/internal/serviceid"
+	"github.com/doublemo/balala/sss"
+	"github.com/doublemo/balala/sss/service"
 )
 
 // 定义版本信息
@@ -33,7 +33,7 @@ var (
 )
 
 var usageStr = `
-Usage: dns-server [options]
+Usage: Session-state server [options]
 Server Options:
 	-c, --config <file>              Configuration file
 
@@ -56,7 +56,7 @@ func usage() {
 }
 
 func ver() {
-	fmt.Printf("dns-server version %s commitid %s builddate %s\n", version, commitid, builddate)
+	fmt.Printf("Session-state server version %s commitid %s builddate %s\n", version, commitid, builddate)
 	os.Exit(0)
 }
 
@@ -91,14 +91,14 @@ func main() {
 	fs.Usage = usage
 	fs.BoolVar(&showHelp, "h", false, "Show this message.")
 	fs.BoolVar(&showHelp, "help", false, "Show this message.")
-	fs.StringVar(&fp, "c", "conf/dns.conf", "Configuration file")
-	fs.StringVar(&fp, "config", "conf/dns.conf", "Configuration file")
+	fs.StringVar(&fp, "c", "conf/sss.conf", "Configuration file")
+	fs.StringVar(&fp, "config", "conf/sss.conf", "Configuration file")
 	fs.BoolVar(&showVersion, "version", false, "Print version information.")
 	fs.BoolVar(&showVersion, "v", false, "Print version information.")
 	fs.BoolVar(&install, "install", false, "Install this server to Windows Services")
 	fs.BoolVar(&uninstall, "uninstall", false, "Uninstall this server in Windows Services")
-	fs.StringVar(&dname, "dname", "Balala DNS", "The name displayed in the windows service")
-	fs.StringVar(&description, "description", "Balala dns server", "Description displayed in Windows Services")
+	fs.StringVar(&dname, "dname", "SSS", "The name displayed in the windows service")
+	fs.StringVar(&description, "description", "Session-state server", "Description displayed in Windows Services")
 	fs.StringVar(&args, "args", "", "Parameters running in Windows Service")
 
 	if err := fs.Parse(os.Args[1:]); err != nil {
@@ -121,7 +121,7 @@ func main() {
 		uninstallService(service.Name)
 	}
 
-	opts := dns.NewConfigureOptions(fp, nil)
+	opts := sss.NewConfigureOptions(fp, nil)
 	if err := opts.Load(); err != nil {
 		panic(err)
 	}
@@ -131,7 +131,7 @@ func main() {
 	// 创建应用服务参数
 	var serviceOpts services.Options
 	{
-		serviceOpts.ID = serviceid.DNSID
+		serviceOpts.ID = serviceid.SessionStateID
 		serviceOpts.Name = service.Name
 		serviceOpts.MachineID = conf.ID
 		serviceOpts.IP = conf.LocalIP
@@ -141,7 +141,7 @@ func main() {
 		serviceOpts.Params["domain"] = conf.Domain
 	}
 
-	if err := services.Run(dns.New(&serviceOpts, opts)); err != nil {
+	if err := services.Run(sss.New(&serviceOpts, opts)); err != nil {
 		panic(err)
 	}
 }

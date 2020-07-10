@@ -3,6 +3,8 @@
 // Package proto 协议处理
 package proto
 
+import "errors"
+
 // Command  定义命令类型
 type Command int16
 
@@ -14,4 +16,14 @@ func (c Command) Int16() int16 {
 // 内部命令定义
 const (
 	InternalBad Command = 110
+)
+
+// 错误信息定义
+var (
+
+	// ErrInvalidCommand 非法的命令
+	ErrInvalidCommand = errors.New("ErrInvalidCommand")
+
+	// ErrInvalidMetadata 非法的metadata信息
+	ErrInvalidMetadata = errors.New("ErrInvalidMetadata")
 )

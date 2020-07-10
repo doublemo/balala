@@ -15,7 +15,9 @@ import (
 	"os"
 
 	"github.com/doublemo/balala/agent"
+	"github.com/doublemo/balala/agent/service"
 	"github.com/doublemo/balala/cores/services"
+	"github.com/doublemo/balala/internal/serviceid"
 )
 
 // 定义版本信息
@@ -85,9 +87,7 @@ func main() {
 		args string
 	)
 
-	const exe = "agent"
-
-	fs := flag.NewFlagSet(exe, flag.ExitOnError)
+	fs := flag.NewFlagSet(service.Name, flag.ExitOnError)
 	fs.Usage = usage
 	fs.BoolVar(&showHelp, "h", false, "Show this message.")
 	fs.BoolVar(&showHelp, "help", false, "Show this message.")
@@ -114,11 +114,11 @@ func main() {
 	}
 
 	if install {
-		installService(exe, dname, description, args)
+		installService(service.Name, dname, description, args)
 	}
 
 	if uninstall {
-		uninstallService(exe)
+		uninstallService(service.Name)
 	}
 
 	opts := agent.NewConfigureOptions(fp, nil)
@@ -131,8 +131,8 @@ func main() {
 	// 创建应用服务参数
 	var serviceOpts services.Options
 	{
-		serviceOpts.ID = 1
-		serviceOpts.Name = exe
+		serviceOpts.ID = serviceid.AgentID
+		serviceOpts.Name = service.Name
 		serviceOpts.MachineID = conf.ID
 		serviceOpts.IP = conf.LocalIP
 		serviceOpts.Port = ""

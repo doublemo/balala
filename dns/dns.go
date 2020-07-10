@@ -15,6 +15,7 @@ import (
 	"github.com/doublemo/balala/cores/utils"
 	"github.com/doublemo/balala/dns/service"
 	"github.com/doublemo/balala/dns/session"
+	"github.com/doublemo/balala/internal/serviceid"
 	"github.com/gin-gonic/gin"
 	"github.com/go-kit/kit/log"
 	kitlog "github.com/go-kit/kit/log/level"
@@ -114,7 +115,7 @@ func (s *DNS) ServiceName() string {
 
 // ServiceID 返回服务唯一服务编号
 func (s *DNS) ServiceID() int32 {
-	return service.ID
+	return serviceid.DNSID
 }
 
 // OtherCommand 响应其他自定义命令
@@ -240,7 +241,7 @@ func (s *DNS) mustRuntimeActor(actor *process.RuntimeActor, err error) *process.
 // New 创建网关服务
 func New(serviceOpts *services.Options, opts *ConfigureOptions) *DNS {
 	logger := log.NewLogfmtLogger(os.Stderr)
-	logger = log.WithPrefix(logger, "o", "[BDNS]")
+	logger = log.WithPrefix(logger, "o", "dns")
 	if opts.Read().Runmode == "dev" {
 		logger = kitlog.NewFilter(logger, kitlog.AllowAll())
 	} else {

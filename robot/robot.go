@@ -1,6 +1,5 @@
 // Copyright (c) 2019 The balala Authors <https://github.com/doublemo/balala>
 
-// robot 机器人系统
 package robot
 
 import (
@@ -13,15 +12,15 @@ import (
 	"github.com/doublemo/balala/cores/process"
 	"github.com/doublemo/balala/cores/services"
 	"github.com/doublemo/balala/cores/utils"
-	"github.com/doublemo/balala/dns/service"
-	"github.com/doublemo/balala/dns/session"
-	"github.com/gin-gonic/gin"
+	"github.com/doublemo/balala/internal/serviceid"
+	"github.com/doublemo/balala/robot/service"
+	"github.com/doublemo/balala/robot/session"
 	"github.com/go-kit/kit/log"
 	kitlog "github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/sd/etcdv3"
 )
 
-// Robot 机器人服务
+// Robot 机器人功能1
 type Robot struct {
 	// exitChan 退出信息
 	exitChan chan struct{}
@@ -57,22 +56,14 @@ func (s *Robot) Start() {
 	// 读取一个配置文件副本
 	opts := s.configureOptions.Read()
 
-	// gin web framework
-	gin.SetMode(gin.ReleaseMode)
-	if opts.Runmode == "dev" {
-		gin.SetMode(gin.DebugMode)
-	}
-
-	// Disable Console Color
-	gin.DisableConsoleColor()
-
 	// init etcd
 	utils.Assert(s.makeEtcdv3Client())
 
-	// 开始注册服务
-	// 注意服务注册顺序就是服务的启动顺序
-	// 关闭服务时会反顺关闭
-	// internal grpc
+	//init routes
+	makeRoutes()
+
+	// rpc
+	s.process.Add(s.mustRuntimeActor(makeGRPCRuntimeActor(s.serviceOpts, opts, s.sessionStore, s.logger)), true)
 
 	// 创建服务
 	s.process.Add(s.mustRuntimeActor(s.makeServices()), true)
@@ -101,7 +92,7 @@ func (s *Robot) ServiceName() string {
 
 // ServiceID 返回服务唯一服务编号
 func (s *Robot) ServiceID() int32 {
-	return service.ID
+	return serviceid.RobotID
 }
 
 // OtherCommand 响应其他自定义命令
@@ -227,7 +218,7 @@ func (s *Robot) mustRuntimeActor(actor *process.RuntimeActor, err error) *proces
 // New 创建网关服务
 func New(serviceOpts *services.Options, opts *ConfigureOptions) *Robot {
 	logger := log.NewLogfmtLogger(os.Stderr)
-	logger = log.WithPrefix(logger, "o", "[BRob]")
+	logger = log.WithPrefix(logger, "o", "Robot server")
 	if opts.Read().Runmode == "dev" {
 		logger = kitlog.NewFilter(logger, kitlog.AllowAll())
 	} else {

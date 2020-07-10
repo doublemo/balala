@@ -1,0 +1,16 @@
+// Copyright (c) 2019 The balala Authors <https://github.com/doublemo/balala>
+// 版本1 接口定义
+syntax = "proto3";
+package pb;
+
+message ApiV1 {
+    
+    // 创建机器人
+    message CreateRequest {
+        string RobotID     = 1; // 机器人类型
+        string Nickname    = 2; // 机器人名称
+        string Username    = 3; // 机器人账户名称
+        string Password    = 4; // 机器人账户密码
+        bytes  Body        = 5; // 内容
+    }
+}
