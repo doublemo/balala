@@ -4,8 +4,6 @@ package session
 
 import (
 	"sync"
-
-	"github.com/doublemo/balala/cores/types"
 )
 
 // Store session 存储
@@ -14,7 +12,7 @@ type Store struct {
 }
 
 // NewClient 创建一个新的session
-func (ss *Store) NewClient(id types.UID) *Client {
+func (ss *Store) NewClient(id string) *Client {
 	var s Client
 	s.id = id
 	ss.store.Store(s.id, &s)
@@ -22,7 +20,7 @@ func (ss *Store) NewClient(id types.UID) *Client {
 }
 
 // Get 获取session
-func (ss *Store) Get(id types.UID) *Client {
+func (ss *Store) Get(id string) *Client {
 	s, ok := ss.store.Load(id)
 	if !ok {
 		return nil
@@ -32,7 +30,7 @@ func (ss *Store) Get(id types.UID) *Client {
 }
 
 // Remove 删除session
-func (ss *Store) Remove(id types.UID) {
+func (ss *Store) Remove(id string) {
 	ss.store.Delete(id)
 }
 

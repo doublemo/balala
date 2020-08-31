@@ -42,14 +42,14 @@ func (caches *Caches) Store(o *Options) {
 }
 
 // StoreFromString 存储来Options对象
-func (caches *Caches) StoreFromString(s string) error {
+func (caches *Caches) StoreFromString(s string) (*Options, error) {
 	o := Options{}
 	if err := json.Unmarshal([]byte(s), &o); err != nil {
-		return err
+		return nil, err
 	}
 
 	caches.Store(&o)
-	return nil
+	return &o, nil
 }
 
 // RndOnce 随机一个

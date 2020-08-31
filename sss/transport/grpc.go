@@ -84,7 +84,7 @@ func (s *GRPCServer) Params(ctx context.Context, in *pb.SessionStateServerAPI_Ne
 }
 
 // NewGRPCServer 创建内部服务grpc server
-func NewGRPCServer(endpoints sssendpoint.Set, otTracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer, logger log.Logger) pb.SessionStateServer_SubscribeServer {
+func NewGRPCServer(endpoints sssendpoint.Set, otTracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer, logger log.Logger) pb.SessionStateServerServer {
 	options := []grpctransport.ServerOption{grpctransport.ServerErrorLogger(logger)}
 
 	if zipkinTracer != nil {
@@ -252,7 +252,7 @@ func MakeRetry(instancer sd.Instancer, factory sd.Factory, retryMax int, retryTi
 
 // MakeRetryStream 流服务支持
 func MakeRetryStream(instancer sd.Instancer, logger log.Logger) endpoint.Endpoint {
-	endpointer := sd.NewEndpointer(instancer, MakeFactoryStream(), logger)
+	endpointer := sd.NewEndpointer(instancer, MakeFactorySubscribe(), logger)
 	balancer := lb.NewRoundRobin(endpointer)
 	return func(ctx context.Context, req interface{}) (response interface{}, err error) {
 		fn, err := balancer.Endpoint()
@@ -275,7 +275,7 @@ func MakeFactorySubscribe() sd.Factory {
 		if err != nil {
 			return nil, nil, err
 		}
-		return makeStreamEndpoint(conn), conn, nil
+		return makeSubscribeEndpoint(conn), conn, nil
 	}
 }
 

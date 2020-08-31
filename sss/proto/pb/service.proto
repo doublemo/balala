@@ -17,12 +17,12 @@ message SessionStateServerAPI {
 
     message Param {
         string key = 1;
-        bytes  Value = 2;
+        string Value = 2;
     }
 
     message Event{
         int32 Action = 1; // 事件
-        uint64 UID   = 2; // 连接ID
+        string ClientID   = 2; // 连接ID
         bytes  Body  = 3; // 事件内容
     }
 
@@ -39,7 +39,10 @@ message SessionStateServerAPI {
     };
 
     message NewRequest{
-        uint64 UID = 1; 
-        repeated Param Params = 2;
+        string ClientID = 1;  // 客户端唯一识别ID
+        string RemoteID = 2;  // 远程服务识别ID
+        string RemoteServAddr = 3; // 远程服务地址
+        string RemoteServID = 4; // 远程服务ID
+        repeated Param Params = 6;
     };
 }

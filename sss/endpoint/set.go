@@ -95,7 +95,7 @@ func (s Set) Params(ctx context.Context, in *pb.SessionStateServerAPI_NewRequest
 func MakeSubscribeEndpoint(s service.GRPC) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(pb.SessionStateServer_SubscribeServer)
-		err = s.Subscribe(req)
+		err = s.Subscribe(ctx, req)
 		if err != nil {
 			return nil, err
 		}
